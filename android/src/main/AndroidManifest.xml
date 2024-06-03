@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.pantech.here_map.here_panda_map">
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <application android:name="${applicationName}">
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+
+</manifest>
