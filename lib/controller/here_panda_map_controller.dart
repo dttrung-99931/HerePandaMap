@@ -18,8 +18,7 @@ class HerePandaMapController extends PandaMapController {
   HerePandaMapController({MapService? service})
       : _mapService = service ?? MapService();
 
-  late final LocationIndicator _locationIndicator = LocationIndicator()
-    ..locationIndicatorStyle = LocationIndicatorIndicatorStyle.pedestrian;
+  late LocationIndicator _locationIndicator;
 
   // final Set<Marker> markers = <Marker>{};
   // final Set<Circle> circles = <Circle>{};
@@ -133,6 +132,8 @@ class HerePandaMapController extends PandaMapController {
       //     MapMeasure(MapMeasureKind.distance, distanceToEarthInMeters);
       // controller.camera.lookAtPointWithMeasure(
       //     GeoCoordinates(52.530932, 13.384915), mapMeasureZoom);
+      _locationIndicator = LocationIndicator()
+        ..locationIndicatorStyle = LocationIndicatorIndicatorStyle.pedestrian;
       _locationIndicator.enable(controller);
       focusCurrentLocation(animate: false);
     });
