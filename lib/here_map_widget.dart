@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
 import 'package:here_sdk/mapview.dart';
+import 'package:panda_map/widgets/loading_widget.dart';
 
 class HereMapWidget extends StatelessWidget {
   const HereMapWidget({
@@ -13,8 +14,11 @@ class HereMapWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return HereMap(
-      onMapCreated: controller.onMapCreated,
+    return LoadingListener(
+      isLoadingNotifier: controller.isLoading,
+      child: HereMap(
+        onMapCreated: controller.onMapCreated,
+      ),
     );
   }
 }

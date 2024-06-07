@@ -13,7 +13,6 @@ import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/services/map_service.dart';
 import 'package:panda_map/utils/asset_utils.dart';
 
-// Controler [GoogleMap]
 class HerePandaMapController extends PandaMapController {
   HerePandaMapController({MapService? service})
       : _mapService = service ?? MapService();
@@ -113,29 +112,35 @@ class HerePandaMapController extends PandaMapController {
   int get currentMapTypeIndex => _currentMapTypeIndex;
 
   void onMapCreated(HereMapController controller) {
-    // onMapCreated may be called many times by MapScreen due to back to home screen
-    if (_controllerCompleter.isCompleted) {
-      _controllerCompleter = Completer();
-    }
-    _controllerCompleter.complete(controller);
-    // controller.
-    controller.camera.lookAtPoint(hcmCityCoordimate.toHereMapCoordinate());
-    controller.mapScene.loadSceneForMapScheme(MapScheme.normalDay,
-        (MapError? error) {
-      if (error != null) {
-        print('Map scene not loaded. MapError: ${error.toString()}');
-        return;
+    load(() async {
+      // onMapCreated may be called many times by MapScreen due to back to home screen
+      if (_controllerCompleter.isCompleted) {
+        _controllerCompleter = Completer();
       }
+      _controllerCompleter.complete(controller);
 
-      // const double distanceToEarthInMeters = 8000;
-      // MapMeasure mapMeasureZoom =
-      //     MapMeasure(MapMeasureKind.distance, distanceToEarthInMeters);
-      // controller.camera.lookAtPointWithMeasure(
-      //     GeoCoordinates(52.530932, 13.384915), mapMeasureZoom);
-      _locationIndicator = LocationIndicator()
-        ..locationIndicatorStyle = LocationIndicatorIndicatorStyle.pedestrian;
-      _locationIndicator.enable(controller);
-      focusCurrentLocation(animate: false);
+      // Load map
+      Completer<bool> loadComplete = Completer<bool>();
+      controller.mapScene.loadSceneForMapScheme(
+        MapScheme.normalDay,
+        (MapError? error) async {
+          if (error != null) {
+            log('Map scene not loaded. MapError: ${error.toString()}');
+            return;
+          }
+
+          // Setup current location indicator
+          _locationIndicator = LocationIndicator()
+            ..locationIndicatorStyle =
+                LocationIndicatorIndicatorStyle.pedestrian;
+          _locationIndicator.enable(controller);
+          await focusCurrentLocation(animate: false);
+
+          loadComplete.complete(true);
+        },
+      );
+
+      await loadComplete.future;
     });
   }
 
