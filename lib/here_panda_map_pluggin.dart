@@ -12,17 +12,18 @@ class HerePandaMapPluggin extends PandaMapPlugin {
       : super(options: options);
 
   @override
-  Widget buildMap(BuildContext context) {
-    return HereMapWidget(controller: getController() as HerePandaMapController);
+  Widget buildMap(
+      BuildContext context, covariant HerePandaMapController controller) {
+    return HereMapWidget(controller: controller);
   }
 
   @override
-  PandaMapController getController() {
+  PandaMapController createController() {
     return HerePandaMapController();
   }
 
   @override
-  MapAPIService getService() {
+  MapAPIService createService() {
     return HereMapAPIService();
   }
 }
