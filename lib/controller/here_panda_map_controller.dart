@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:here_panda_map/extensions/map_extensions.dart';
 import 'package:here_panda_map/here_map_options.dart';
 import 'package:here_sdk/core.dart';
 import 'package:here_sdk/core.engine.dart';
@@ -12,6 +13,7 @@ import 'package:panda_map/core/controllers/panda_map_controller.dart';
 import 'package:panda_map/core/models/map_current_location.dart';
 import 'package:panda_map/core/models/map_lat_lng.dart';
 import 'package:panda_map/core/models/map_location.dart';
+import 'package:panda_map/core/models/map_polyline.dart' as pandaMap;
 import 'package:panda_map/utils/asset_utils.dart';
 
 class HerePandaMapController extends PandaMapController {
@@ -20,6 +22,7 @@ class HerePandaMapController extends PandaMapController {
   late Future<HereMapController> controllerFuture = _controllerCompleter.future;
 
   HereMapController? _controller;
+  HereMapController get controller => _controller!;
   // final Set<Marker> markers = <Marker>{};
   // final Set<Circle> circles = <Circle>{};
   Completer<HereMapController> _controllerCompleter = Completer();
@@ -30,6 +33,8 @@ class HerePandaMapController extends PandaMapController {
 
   final int _currentMapTypeIndex = 1;
   LocationIndicator? _locationIndicator;
+
+  final List<MapPolyline> _polylines = [];
 
   @override
   Future<void> initMap(covariant HerePandaMapOptions options) async {
@@ -189,16 +194,25 @@ class HerePandaMapController extends PandaMapController {
       },
     );
   }
-}
 
-extension ToHereCoordinate on MapLocation {
-  GeoCoordinates toHereMapCoordinate() {
-    return GeoCoordinates(lat, long);
+  @override
+  void addMapPolyline(pandaMap.MapPolyline polyline) {
+    final herePolyline = MapPolyline.withRepresentation(
+      polyline.toHereMapGeoPolyline(),
+      MapPolylineSolidRepresentation(
+        MapMeasureDependentRenderSize.withSingleSize(
+          RenderSizeUnit.pixels,
+          polyline.width,
+        ),
+        polyline.color,
+        LineCap.round,
+      ),
+    );
+    control(
+      (controller) async {
+        _polylines.add(herePolyline);
+        controller.mapScene.addMapPolyline(herePolyline);
+      },
+    );
   }
 }
-
-// extension ToGeo on LatLng {
-//   MapLatLng toMapLatLng() {
-//     return MapLatLng(lat: latitude, lng: longitude);
-//   }
-// }
