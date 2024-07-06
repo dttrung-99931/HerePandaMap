@@ -37,7 +37,7 @@ class HerePandaMapController extends PandaMapController {
 
   final List<MapPolyline> _polylines = [];
 
-  double _currentZoomLevel = 11; // in [0, 22]
+  double _currentZoomLevel = 18; // in [0, 22]
 
   @override
   Future<void> initMap(covariant HerePandaMapOptions options) async {

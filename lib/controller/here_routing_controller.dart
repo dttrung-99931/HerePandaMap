@@ -4,10 +4,13 @@ import 'dart:async';
 import 'package:here_sdk/core.errors.dart';
 import 'package:here_sdk/routing.dart';
 import 'package:panda_map/core/controllers/pada_routing_controller.dart';
+import 'package:panda_map/core/dtos/map_address_component_dto.dart';
+import 'package:panda_map/core/models/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
+import 'package:panda_map/core/services/map_api_service.dart';
 import 'package:panda_map/panda_map.dart';
 
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
@@ -18,6 +21,7 @@ class HereRoutingController extends PandaRoutingController {
     required this.mapController,
   });
   final HerePandaMapController mapController;
+  late final MapAPIService _service = PandaMap.mapApiService;
   late final RoutingEngine _routingEngine;
   MapRoute? _currentRoute;
 
@@ -41,16 +45,16 @@ class HereRoutingController extends PandaRoutingController {
     // Current route will be reset when finding a new route
     _currentRoute = null;
 
-    Waypoint startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
-    Waypoint destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
-    List<Waypoint> waypoints = [startWaypoint, destWaypoint];
-    BicycleOptions options = BicycleOptions();
+    final startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
+    final destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
+    final waypoints = [startWaypoint, destWaypoint];
+    final options = BicycleOptions();
     options.routeOptions.enableTolls = true;
     Completer<MapRoute?> completer = Completer();
     _routingEngine.calculateBicycleRoute(
       waypoints,
       options,
-      (RoutingError? p0, List<Route>? p1) {
+      (RoutingError? p0, List<Route>? p1) async {
         if (p0 != null) {
           completer.completeError(p0);
           return;
@@ -59,8 +63,10 @@ class HereRoutingController extends PandaRoutingController {
         if (p1 == null || p1.isEmpty) {
           completer.complete(null);
         }
-        Route hereRoute = p1!.first;
-        MapRoute route = MapRoute(
+        final Route hereRoute = p1!.first;
+        final MapAddressComponent? startAddr = await _getAddressByGeo(start);
+        final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
+        final MapRoute route = MapRoute(
           polyline: MapPolyline(
             vertices: hereRoute.geometry.vertices
                 .map((e) => e.toMapLocation())
@@ -68,8 +74,8 @@ class HereRoutingController extends PandaRoutingController {
             color: PandaMap.uiOptions.routeColor,
           ),
           locations: [
-            MapAddressLocation(location: start, address: '204/12 A3, QL 13'),
-            MapAddressLocation(location: dest, address: '19/8 Hồ Văn Huê'),
+            MapAddressLocation(location: start, address: startAddr),
+            MapAddressLocation(location: dest, address: destAddr),
           ],
         );
         hereRoute.sections.first.arrivalPlace.name;
@@ -77,6 +83,12 @@ class HereRoutingController extends PandaRoutingController {
       },
     );
     return completer.future;
+  }
+
+  Future<MapAddressComponent?> _getAddressByGeo(MapLocation location) async {
+    final MapAddressComponentDto? addr =
+        await _service.getAddressByGeo(location);
+    return addr != null ? MapAddressComponent.fromDto(addr) : null;
   }
 
   @override

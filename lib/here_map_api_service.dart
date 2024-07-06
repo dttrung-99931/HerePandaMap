@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:here_panda_map/extensions/map_extensions.dart';
+import 'package:here_panda_map/models/here_address_component_dto.dart';
 import 'package:here_sdk/core.dart';
 import 'package:here_sdk/search.dart';
 import 'package:panda_map/core/dtos/map_address_component_dto.dart';
@@ -8,6 +10,7 @@ import 'package:panda_map/core/dtos/map_place_detail_dto.dart';
 import 'package:panda_map/core/dtos/map_place_dto.dart';
 import 'package:panda_map/core/dtos/map_search_result_dto.dart';
 import 'package:panda_map/core/exceptions/search_exception.dart';
+import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/services/map_api_service.dart';
 
 class HereMapAPIService implements MapAPIService {
@@ -53,12 +56,7 @@ class HereMapAPIService implements MapAPIService {
                   latitude: place.geoCoordinates?.latitude ?? -1,
                   longitude: place.geoCoordinates?.longitude ?? -1,
                 ),
-                addressComponent: MapAddressComponentDto(
-                  provinceOrCity: place.address.city,
-                  district: place.address.district,
-                  communeOrWard: place.address.city, // FIXME
-                  streetAndHouseNum: '${place.address.street} ${place.address.houseNumOrName}}',
-                ));
+                addressComponent: HereAddressComponentDto.fromPlace(place));
           },
         ).toList());
         completer.complete(searchResult);
@@ -70,5 +68,31 @@ class HereMapAPIService implements MapAPIService {
   @override
   Future<MapPlaceDetailDto> getPlaceDetail(String placeId) async {
     throw 'Not implemented';
+  }
+
+  @override
+  Future<MapAddressComponentDto?> getAddressByGeo(MapLocation location) {
+    final options = SearchOptions()
+      ..languageCode = LanguageCode.viVn
+      ..maxItems = 1;
+    final completer = Completer<MapAddressComponentDto?>();
+    _searchEngine.searchByCoordinates(
+      location.toHereMapCoordinate(),
+      options,
+      (SearchError? error, List<Place>? places) {
+        if (error != null) {
+          completer.completeError(error);
+          return;
+        }
+        if (places == null || places.isEmpty) {
+          completer.complete(null);
+          return;
+        }
+        final Place place = places.first;
+        final address = HereAddressComponentDto.fromPlace(place);
+        completer.complete(address);
+      },
+    );
+    return completer.future;
   }
 }
