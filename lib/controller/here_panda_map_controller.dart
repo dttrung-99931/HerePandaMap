@@ -18,7 +18,8 @@ import 'package:panda_map/utils/asset_utils.dart';
 
 class HerePandaMapController extends PandaMapController {
   HerePandaMapController();
-
+  static const double maxZoomLevel = 22;
+  static const double minZoomLevel = 0;
   late Future<HereMapController> controllerFuture = _controllerCompleter.future;
 
   HereMapController? _controller;
@@ -35,6 +36,8 @@ class HerePandaMapController extends PandaMapController {
   LocationIndicator? _locationIndicator;
 
   final List<MapPolyline> _polylines = [];
+
+  double _currentZoomLevel = 11; // in [0, 22]
 
   @override
   Future<void> initMap(covariant HerePandaMapOptions options) async {
@@ -214,5 +217,25 @@ class HerePandaMapController extends PandaMapController {
         controller.mapScene.addMapPolyline(herePolyline);
       },
     );
+  }
+
+  @override
+  void zoomIn() {
+    if (_currentZoomLevel <= minZoomLevel) {
+      return;
+    }
+    control((controller) async {
+      controller.camera.zoomTo(_currentZoomLevel--);
+    });
+  }
+
+  @override
+  void zoomOut() {
+    if (_currentZoomLevel >= maxZoomLevel) {
+      return;
+    }
+    control((controller) async {
+      controller.camera.zoomTo(_currentZoomLevel++);
+    });
   }
 }

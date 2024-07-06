@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:here_sdk/core.errors.dart';
 import 'package:here_sdk/routing.dart';
 import 'package:panda_map/core/controllers/pada_routing_controller.dart';
+import 'package:panda_map/core/models/map_address_location.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
@@ -13,11 +14,12 @@ import 'package:here_panda_map/controller/here_panda_map_controller.dart';
 import 'package:here_panda_map/extensions/map_extensions.dart';
 
 class HereRoutingController extends PandaRoutingController {
-  final HerePandaMapController mapController;
-  late final RoutingEngine _routingEngine;
   HereRoutingController({
     required this.mapController,
   });
+  final HerePandaMapController mapController;
+  late final RoutingEngine _routingEngine;
+  MapRoute? _currentRoute;
 
   @override
   Future<void> init() async {
@@ -29,10 +31,16 @@ class HereRoutingController extends PandaRoutingController {
   }
 
   @override
+  MapRoute? get currentRoute => _currentRoute;
+
+  @override
   Future<MapRoute?> findRoute({
     required MapLocation start,
     required MapLocation dest,
   }) {
+    // Current route will be reset when finding a new route
+    _currentRoute = null;
+
     Waypoint startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
     Waypoint destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
     List<Waypoint> waypoints = [startWaypoint, destWaypoint];
@@ -59,7 +67,12 @@ class HereRoutingController extends PandaRoutingController {
                 .toList(),
             color: PandaMap.uiOptions.routeColor,
           ),
+          locations: [
+            MapAddressLocation(location: start, address: '204/12 A3, QL 13'),
+            MapAddressLocation(location: dest, address: '19/8 Hồ Văn Huê'),
+          ],
         );
+        hereRoute.sections.first.arrivalPlace.name;
         completer.complete(route);
       },
     );
@@ -68,6 +81,8 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   Future<void> showRoute(MapRoute route) async {
+    _currentRoute = route;
     mapController.addMapPolyline(route.polyline);
+    notifyListeners();
   }
 }

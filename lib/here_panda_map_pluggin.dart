@@ -10,8 +10,10 @@ import 'package:panda_map/core/services/map_api_service.dart';
 import 'package:panda_map/panda_map_plugin.dart';
 
 class HerePandaMapPluggin extends PandaMapPlugin {
-  HerePandaMapPluggin({required HerePandaMapOptions options})
-      : super(options: options);
+  HerePandaMapPluggin({
+    required HerePandaMapOptions super.options,
+    super.uiOptions,
+  });
 
   @override
   Widget buildMap(
