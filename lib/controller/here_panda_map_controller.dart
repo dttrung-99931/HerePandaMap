@@ -7,7 +7,6 @@ import 'package:here_sdk/core.dart';
 import 'package:here_sdk/core.engine.dart';
 import 'package:here_sdk/core.errors.dart';
 import 'package:here_sdk/mapview.dart';
-import 'package:location_platform_interface/location_platform_interface.dart';
 import 'package:panda_map/assets/assets.dart';
 import 'package:panda_map/core/controllers/panda_map_controller.dart';
 import 'package:panda_map/core/models/map_current_location.dart';
@@ -154,8 +153,8 @@ class HerePandaMapController extends PandaMapController {
   }
 
   @override
-  void onLocationChanged(LocationData event) {
-    updateCurLocationIndicator(MapCurrentLocation.fromLocationData(event));
+  void onLocationChanged(MapCurrentLocation location) {
+    updateCurLocationIndicator(location);
   }
 
   void updateCurLocationIndicator(MapCurrentLocation? currentLocation) {
