@@ -8,6 +8,7 @@ import 'package:panda_map/core/dtos/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
 import 'package:panda_map/core/models/map_location.dart';
+import 'package:panda_map/core/models/map_mode.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
 import 'package:panda_map/core/services/map_api_service.dart';
@@ -95,6 +96,7 @@ class HereRoutingController extends PandaRoutingController {
   Future<void> showRoute(MapRoute route) async {
     _currentRoute = route;
     mapController.addMapPolyline(route.polyline);
+    mapController.changeMode(MapMode.navigation);
     notifyListeners();
   }
 }
