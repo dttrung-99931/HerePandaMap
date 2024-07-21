@@ -45,7 +45,7 @@ class HerePandaMapPluggin extends PandaMapPlugin {
   @override
   Widget buildMapOverlay(BuildContext context, MapMode mode) {
     if (mode == MapMode.navigation) {
-      return const HereMapNavigationOverlay();
+      return HereMapNavigationOverlay();
     }
     return super.buildMapOverlay(context, mode);
   }

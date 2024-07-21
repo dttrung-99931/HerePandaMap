@@ -9,6 +9,7 @@ import 'package:panda_map/core/models/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_mode.dart';
+import 'package:panda_map/core/models/map_move_step.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
 import 'package:panda_map/core/services/map_api_service.dart';
@@ -24,7 +25,20 @@ class HereRoutingController extends PandaRoutingController {
   final HerePandaMapController mapController;
   late final MapAPIService _service = PandaMap.mapApiService;
   late final RoutingEngine _routingEngine;
+
   MapRoute? _currentRoute;
+  @override
+  MapRoute? get currentRoute => _currentRoute;
+  MapRoute get _currentRouteNotNull {
+    if (_currentRoute == null) {
+      throw 'There is no current route. You must start a route before access to this getter';
+    }
+    return _currentRoute!;
+  }
+
+  // TODO:
+  @override
+  MapMoveStep get currentMoveStep => _currentRouteNotNull.moveSteps.first;
 
   @override
   Future<void> init() async {
@@ -34,9 +48,6 @@ class HereRoutingController extends PandaRoutingController {
       throw ("Initialization of RoutingEngine failed.");
     }
   }
-
-  @override
-  MapRoute? get currentRoute => _currentRoute;
 
   @override
   Future<MapRoute?> findRoute({
@@ -67,6 +78,8 @@ class HereRoutingController extends PandaRoutingController {
         final Route hereRoute = p1!.first;
         final MapAddressComponent? startAddr = await _getAddressByGeo(start);
         final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
+        final List<Maneuver> moveSteps = hereRoute.sections
+            .fold([], (steps, sec) => [...steps, ...sec.maneuvers]);
         final MapRoute route = MapRoute(
           polyline: MapPolyline(
             vertices: hereRoute.geometry.vertices
@@ -78,6 +91,9 @@ class HereRoutingController extends PandaRoutingController {
             MapAddressLocation(location: start, address: startAddr),
             MapAddressLocation(location: dest, address: destAddr),
           ],
+          moveSteps: moveSteps
+              .map((Maneuver moveStep) => moveStep.toMoveStep())
+              .toList(),
         );
         hereRoute.sections.first.arrivalPlace.name;
         completer.complete(route);
