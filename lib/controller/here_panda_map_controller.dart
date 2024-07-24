@@ -10,9 +10,10 @@ import 'package:here_sdk/mapview.dart';
 import 'package:panda_map/assets/assets.dart';
 import 'package:panda_map/core/controllers/panda_map_controller.dart';
 import 'package:panda_map/core/models/map_current_location.dart';
+import 'package:panda_map/core/models/map_current_location_style.dart';
 import 'package:panda_map/core/models/map_lat_lng.dart';
 import 'package:panda_map/core/models/map_location.dart';
-import 'package:panda_map/core/models/map_polyline.dart' as pandaMap;
+import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/utils/asset_utils.dart';
 
 class HerePandaMapController extends PandaMapController {
@@ -32,7 +33,7 @@ class HerePandaMapController extends PandaMapController {
   MapMarker? _currentLocationMarker;
 
   final int _currentMapTypeIndex = 1;
-  LocationIndicator? _locationIndicator;
+  LocationIndicator? _currentLocationIndicator;
 
   final List<MapPolyline> _polylines = [];
 
@@ -62,10 +63,10 @@ class HerePandaMapController extends PandaMapController {
       _controller = controller;
 
       // Setup current location indicator
-      _locationIndicator?.disable();
-      _locationIndicator = LocationIndicator()
+      _currentLocationIndicator?.disable();
+      _currentLocationIndicator = LocationIndicator()
         ..locationIndicatorStyle = LocationIndicatorIndicatorStyle.pedestrian;
-      _locationIndicator?.enable(controller);
+      _currentLocationIndicator?.enable(controller);
       await focusCurrentLocation(animate: false);
 
       // Load map
@@ -160,7 +161,7 @@ class HerePandaMapController extends PandaMapController {
   void updateCurLocationIndicator(MapCurrentLocation? currentLocation) {
     // Run in control() to mark sure called after mapInint
     control((_) async {
-      _locationIndicator?.updateLocation(
+      _currentLocationIndicator?.updateLocation(
         Location.withCoordinates(currentLocation!.toHereMapCoordinate()),
       );
     });
@@ -198,7 +199,7 @@ class HerePandaMapController extends PandaMapController {
   }
 
   @override
-  void addMapPolyline(pandaMap.MapPolyline polyline) {
+  void addMapPolyline(MapPolylinePanda polyline) {
     final herePolyline = MapPolyline.withRepresentation(
       polyline.toHereMapGeoPolyline(),
       MapPolylineSolidRepresentation(
@@ -236,5 +237,11 @@ class HerePandaMapController extends PandaMapController {
     control((controller) async {
       controller.camera.zoomTo(_currentZoomLevel++);
     });
+  }
+
+  @override
+  void changeCurrentLocationStyle(MapCurrentLocationStyle style) {
+    _currentLocationIndicator?.locationIndicatorStyle =
+        style.toHereCurrentLocationStyle();
   }
 }

@@ -7,6 +7,7 @@ import 'package:panda_map/core/controllers/pada_routing_controller.dart';
 import 'package:panda_map/core/dtos/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
+import 'package:panda_map/core/models/map_current_location_style.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_mode.dart';
 import 'package:panda_map/core/models/map_move_step.dart';
@@ -81,7 +82,7 @@ class HereRoutingController extends PandaRoutingController {
         final List<Maneuver> moveSteps = hereRoute.sections
             .fold([], (steps, sec) => [...steps, ...sec.maneuvers]);
         final MapRoute route = MapRoute(
-          polyline: MapPolyline(
+          polyline: MapPolylinePanda(
             vertices: hereRoute.geometry.vertices
                 .map((e) => e.toMapLocation())
                 .toList(),
@@ -108,11 +109,15 @@ class HereRoutingController extends PandaRoutingController {
     return addr != null ? MapAddressComponent.fromDto(addr) : null;
   }
 
-  @override
+  @override // TODO: rename startNavigation
   Future<void> showRoute(MapRoute route) async {
     _currentRoute = route;
     mapController.addMapPolyline(route.polyline);
     mapController.changeMode(MapMode.navigation);
+    mapController.changeCurrentLocationStyle(
+      MapCurrentLocationStyle.navigation,
+    );
+    mapController.focusCurrentLocation();
     notifyListeners();
   }
 }
