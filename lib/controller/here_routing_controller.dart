@@ -1,12 +1,16 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
 
+import 'package:here_panda_map/controller/here_panda_map_controller.dart';
+import 'package:here_panda_map/extensions/map_extensions.dart';
 import 'package:here_sdk/core.errors.dart';
+import 'package:here_sdk/mapview.dart';
 import 'package:here_sdk/routing.dart';
 import 'package:panda_map/core/controllers/pada_routing_controller.dart';
 import 'package:panda_map/core/dtos/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
+import 'package:panda_map/core/models/map_current_location.dart';
 import 'package:panda_map/core/models/map_current_location_style.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_mode.dart';
@@ -16,9 +20,6 @@ import 'package:panda_map/core/models/map_route.dart';
 import 'package:panda_map/core/services/map_api_service.dart';
 import 'package:panda_map/panda_map.dart';
 
-import 'package:here_panda_map/controller/here_panda_map_controller.dart';
-import 'package:here_panda_map/extensions/map_extensions.dart';
-
 class HereRoutingController extends PandaRoutingController {
   HereRoutingController({
     required this.mapController,
@@ -26,6 +27,13 @@ class HereRoutingController extends PandaRoutingController {
   final HerePandaMapController mapController;
   late final MapAPIService _service = PandaMap.mapApiService;
   late final RoutingEngine _routingEngine;
+
+  /// Hold current shoiwing map polyline
+  MapPolylinePanda? _routePolyline;
+
+  /// Reference to here polyline that created from [_routePolyline]
+  /// Used to delete polyline
+  MapPolyline? _herePolylineRef;
 
   MapRoute? _currentRoute;
   @override
@@ -45,6 +53,8 @@ class HereRoutingController extends PandaRoutingController {
   Future<void> init() async {
     try {
       _routingEngine = RoutingEngine();
+      // TODO: remove listner
+      mapController.locationChangedStream.listen(_onLocationChanged);
     } on InstantiationException {
       throw ("Initialization of RoutingEngine failed.");
     }
@@ -82,11 +92,8 @@ class HereRoutingController extends PandaRoutingController {
         final List<Maneuver> moveSteps = hereRoute.sections
             .fold([], (steps, sec) => [...steps, ...sec.maneuvers]);
         final MapRoute route = MapRoute(
-          polyline: MapPolylinePanda(
-            vertices: hereRoute.geometry.vertices
-                .map((e) => e.toMapLocation())
-                .toList(),
-            color: PandaMap.uiOptions.routeColor,
+          polyline: MapPolylinePanda.fromVertices(
+            hereRoute.geometry.vertices.map((e) => e.toMapLocation()).toList(),
           ),
           locations: [
             MapAddressLocation(location: start, address: startAddr),
@@ -112,12 +119,47 @@ class HereRoutingController extends PandaRoutingController {
   @override // TODO: rename startNavigation
   Future<void> showRoute(MapRoute route) async {
     _currentRoute = route;
-    mapController.addMapPolyline(route.polyline);
+    _showRoutePolyline(route.polyline);
     mapController.changeMode(MapMode.navigation);
     mapController.changeCurrentLocationStyle(
       MapCurrentLocationStyle.navigation,
     );
     mapController.focusCurrentLocation();
     notifyListeners();
+  }
+
+  void _showRoutePolyline(MapPolylinePanda polyline) {
+    _routePolyline = polyline;
+    _herePolylineRef = mapController.addPolyline(polyline) as MapPolyline;
+  }
+
+  void _removeCurrentRoutePolyline() {
+    if (_herePolylineRef != null) {
+      mapController.removePolyline(_herePolylineRef!);
+      _herePolylineRef = null;
+      _routePolyline = null;
+    }
+  }
+
+  void _onLocationChanged(MapCurrentLocation event) {
+    List<MapLocation> polylineLocations =
+        List.of(_routePolyline?.vertices ?? []);
+    if (polylineLocations.length <= 1) {
+      return;
+    }
+    int len = polylineLocations.length;
+    MapLocation landmarkLocation = polylineLocations[len - 2];
+    MapLocation checkLocation = polylineLocations.last;
+    MapLocation currentLocation = event;
+    while (len >= 2 &&
+        landmarkLocation.cooordinatorDistanceTo(checkLocation) >
+            landmarkLocation.cooordinatorDistanceTo(currentLocation)) {
+      polylineLocations.removeLast();
+      len--;
+      landmarkLocation = polylineLocations[len - 2];
+      checkLocation = polylineLocations.last;
+    }
+    _removeCurrentRoutePolyline();
+    _showRoutePolyline(MapPolylinePanda.fromVertices(polylineLocations));
   }
 }

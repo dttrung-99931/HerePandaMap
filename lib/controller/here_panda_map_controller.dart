@@ -199,7 +199,7 @@ class HerePandaMapController extends PandaMapController {
   }
 
   @override
-  void addMapPolyline(MapPolylinePanda polyline) {
+  Object addPolyline(MapPolylinePanda polyline) {
     final herePolyline = MapPolyline.withRepresentation(
       polyline.toHereMapGeoPolyline(),
       MapPolylineSolidRepresentation(
@@ -217,6 +217,12 @@ class HerePandaMapController extends PandaMapController {
         controller.mapScene.addMapPolyline(herePolyline);
       },
     );
+    return herePolyline;
+  }
+
+  @override
+  void removePolyline(Object polyline) {
+    // TODO: implement removePolyline
   }
 
   @override
