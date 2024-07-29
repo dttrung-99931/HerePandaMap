@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:here_panda_map/extensions/map_extensions.dart';
 import 'package:here_panda_map/here_map_options.dart';
 import 'package:here_sdk/core.dart';
@@ -106,6 +108,22 @@ class HerePandaMapController extends PandaMapController {
 
     // circles.add(circle);
     notifyListeners();
+  }
+
+  void addCircle(MapLocation location, double radiusInMetters, Color color) {
+    control(
+      (controller) async {
+        GeoCircle geoCircle = GeoCircle(
+          location.toHereMapCoordinate(),
+          radiusInMetters,
+        );
+        MapPolygon mapPolygon = MapPolygon(
+          GeoPolygon.withGeoCircle(geoCircle),
+          color,
+        );
+        controller.mapScene.addMapPolygon(mapPolygon);
+      },
+    );
   }
 
   @override

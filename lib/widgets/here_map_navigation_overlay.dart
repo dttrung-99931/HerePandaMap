@@ -5,6 +5,7 @@ import 'package:panda_map/core/controllers/pada_routing_controller.dart';
 import 'package:panda_map/panda_map.dart';
 import 'package:panda_map/utils/constants.dart';
 import 'package:panda_map/widgets/map/current_location_button.dart';
+import 'package:panda_map/widgets/map/zoom_buttons.dart';
 
 class HereMapNavigationOverlay extends StatelessWidget {
   HereMapNavigationOverlay({
@@ -28,15 +29,17 @@ class HereMapNavigationOverlay extends StatelessWidget {
             height: MediaQuery.of(context).size.height,
             padding: const EdgeInsets.all(8.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 MoveDirection(routingController: routingController),
                 const Spacer(),
                 Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: Row(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      ZoomButtons(controller: PandaMap.controller),
+                      const SizedBox(height: 8),
                       CurrentLocationButton(controller: PandaMap.controller),
                     ],
                   ),

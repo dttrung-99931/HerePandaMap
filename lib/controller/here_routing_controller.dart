@@ -142,22 +142,39 @@ class HereRoutingController extends PandaRoutingController {
   }
 
   void _onLocationChanged(MapCurrentLocation event) {
+    _updateRoutePolyline(event);
+  }
+
+  void _updateRoutePolyline(MapCurrentLocation event) {
     List<MapLocation> polylineLocations =
         List.of(_routePolyline?.vertices ?? []);
     if (polylineLocations.length <= 1) {
       return;
     }
+
     int len = polylineLocations.length;
-    MapLocation landmarkLocation = polylineLocations[len - 2];
-    MapLocation checkLocation = polylineLocations.last;
+    int landmarkIdx = 1;
+
+    /// Landmark is a location selected to determine [checkLocation] behind or ahead [currentLocation]
+    MapLocation landmarkLocation = polylineLocations[1];
+    MapLocation checkLocation = polylineLocations[0];
     MapLocation currentLocation = event;
-    while (len >= 2 &&
+    while (landmarkIdx < len - 1 &&
         landmarkLocation.cooordinatorDistanceTo(checkLocation) >
             landmarkLocation.cooordinatorDistanceTo(currentLocation)) {
-      polylineLocations.removeLast();
-      len--;
-      landmarkLocation = polylineLocations[len - 2];
-      checkLocation = polylineLocations.last;
+      checkLocation = landmarkLocation;
+      landmarkIdx++;
+      landmarkLocation = polylineLocations[landmarkIdx];
+    }
+
+    // if landmardIdx reach the last location then plus 1, then all locations will be removed
+    if (landmarkIdx == len - 1) {
+      landmarkIdx++;
+    }
+
+    // Handle remove locations behind the current location
+    if (landmarkIdx - 1 > 0) {
+      polylineLocations.removeRange(0, landmarkIdx - 1);
     }
     _removeCurrentRoutePolyline();
     _showRoutePolyline(MapPolylinePanda.fromVertices(polylineLocations));
