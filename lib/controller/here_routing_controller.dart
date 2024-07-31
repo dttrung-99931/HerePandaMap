@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
 import 'package:here_panda_map/extensions/map_extensions.dart';
@@ -145,7 +146,7 @@ class HereRoutingController extends PandaRoutingController {
     _updateRoutePolyline(event);
   }
 
-  void _updateRoutePolyline(MapCurrentLocation event) {
+  void _updateRoutePolyline(MapCurrentLocation currentLocation) {
     List<MapLocation> polylineLocations =
         List.of(_routePolyline?.vertices ?? []);
     if (polylineLocations.length <= 1) {
@@ -153,30 +154,25 @@ class HereRoutingController extends PandaRoutingController {
     }
 
     int len = polylineLocations.length;
-    int landmarkIdx = 1;
-
-    /// Landmark is a location selected to determine [checkLocation] behind or ahead [currentLocation]
-    MapLocation landmarkLocation = polylineLocations[1];
-    MapLocation checkLocation = polylineLocations[0];
-    MapLocation currentLocation = event;
-    while (landmarkIdx < len - 1 &&
-        landmarkLocation.cooordinatorDistanceTo(checkLocation) >
-            landmarkLocation.cooordinatorDistanceTo(currentLocation)) {
-      checkLocation = landmarkLocation;
-      landmarkIdx++;
-      landmarkLocation = polylineLocations[landmarkIdx];
-    }
-
-    // if landmardIdx reach the last location then plus 1, then all locations will be removed
-    if (landmarkIdx == len - 1) {
-      landmarkIdx++;
+    int closestLocationIdx = 0;
+    double minDistance =
+        currentLocation.distanceInMetters(polylineLocations[0]);
+    // TODO: optimize iterate on the first 50 locaitons
+    for (int i = 1; i < 10; i++) {
+      double distance = currentLocation.distanceInMetters(polylineLocations[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestLocationIdx = i;
+      }
     }
 
     // Handle remove locations behind the current location
-    if (landmarkIdx - 1 > 0) {
-      polylineLocations.removeRange(0, landmarkIdx - 1);
+    if (closestLocationIdx > 0) {
+      log("Remove $closestLocationIdx");
+      polylineLocations.removeRange(0, closestLocationIdx);
+      log("Remaing ${polylineLocations.length}");
+      _removeCurrentRoutePolyline();
+      _showRoutePolyline(MapPolylinePanda.fromVertices(polylineLocations));
     }
-    _removeCurrentRoutePolyline();
-    _showRoutePolyline(MapPolylinePanda.fromVertices(polylineLocations));
   }
 }

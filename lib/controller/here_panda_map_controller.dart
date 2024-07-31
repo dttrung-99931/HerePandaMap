@@ -233,6 +233,11 @@ class HerePandaMapController extends PandaMapController {
       (controller) async {
         _polylines.add(herePolyline);
         controller.mapScene.addMapPolyline(herePolyline);
+        polyline.vertices.forEach(
+          (element) {
+            addCircle(element, 5, Colors.red);
+          },
+        );
       },
     );
     return herePolyline;
