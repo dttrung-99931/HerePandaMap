@@ -5,16 +5,17 @@ homepage: https://github.com/dttrung-99931/PandaMap
 publish_to: none
 
 environment:
-  sdk: '>=3.4.1 <4.0.0'
-  flutter: '>=3.3.0'
+  sdk: ">=3.4.1 <4.0.0"
+  flutter: ">=3.3.0"
 
 dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
   panda_map:
-     git: https://github.com/dttrung-99931/PandaMap.git
-    path: #
+    git: https://github.com/dttrung-99931/PandaMap.git
+    #
+    # path: #
   here_sdk:
     path: plugins/heresdk-explore-flutter
   maps_toolkit: ^3.0.0 # Computing on map
