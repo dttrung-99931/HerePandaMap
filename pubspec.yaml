@@ -17,6 +17,7 @@ dependencies:
     path: #
   here_sdk:
     path: plugins/heresdk-explore-flutter
+  maps_toolkit: ^3.0.0 # Computing on map
 
 dev_dependencies:
   flutter_test:
@@ -27,7 +28,7 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
-flutter:
+# flutter:
   # This section identifies this Flutter project as a plugin project.
   # The 'pluginClass' specifies the class (in Java, Kotlin, Swift, Objective-C, etc.)
   # which should be registered in the plugin registry. This is required for
@@ -41,7 +42,7 @@ flutter:
   # plugin:
   #   platforms:
   #     android:
-  #       package: com.pantech.here_map.here_panda_map
+  #       package: com.pantech.here_map.here_panda__map
   #       pluginClass: HerePandaMapPlugin
   #     ios:
   #       pluginClass: HerePandaMapPlugin

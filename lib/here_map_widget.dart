@@ -2,9 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
 import 'package:here_sdk/mapview.dart';
+import 'package:panda_map/panda_map.dart';
 import 'package:panda_map/widgets/loading_widget.dart';
 
-class HereMapWidget extends StatelessWidget {
+class HereMapWidget extends StatefulWidget {
   const HereMapWidget({
     super.key,
     required this.controller,
@@ -13,11 +14,23 @@ class HereMapWidget extends StatelessWidget {
   final HerePandaMapController controller;
 
   @override
+  State<HereMapWidget> createState() => _HereMapWidgetState();
+}
+
+class _HereMapWidgetState extends State<HereMapWidget> {
+  @override
+  void dispose() {
+    PandaMap.routingController.stopNavigation();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LoadingListener(
-      isLoadingNotifier: controller.isLoading,
+      isLoadingNotifier: widget.controller.isLoading,
       child: HereMap(
-        onMapCreated: controller.onMapCreated,
+        onMapCreated: widget.controller.onMapCreated,
+        mode: NativeViewMode.hybridComposition,
       ),
     );
   }

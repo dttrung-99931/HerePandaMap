@@ -16,19 +16,28 @@ import 'package:panda_map/core/models/map_current_location_style.dart';
 import 'package:panda_map/core/models/map_lat_lng.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
+import 'package:panda_map/panda_map.dart';
 import 'package:panda_map/utils/asset_utils.dart';
 
 class HerePandaMapController extends PandaMapController {
   HerePandaMapController();
   static const double maxZoomLevel = 22;
   static const double minZoomLevel = 0;
-  late Future<HereMapController> controllerFuture = _controllerCompleter.future;
 
   HereMapController? _controller;
   HereMapController get controller => _controller!;
-  // final Set<Marker> markers = <Marker>{};
-  // final Set<Circle> circles = <Circle>{};
-  Completer<HereMapController> _controllerCompleter = Completer();
+
+  // Controller
+  late Future<HereMapController> controllerFuture =
+      _controllerStream.stream.first;
+  final StreamController<HereMapController> _controllerStream =
+      StreamController.broadcast();
+
+  // Load map sense
+  Future get waitToLoadMapSenseComplete =>
+      _loadMapSenseCompleteStream.stream.firstWhere((value) => value);
+  final StreamController<bool> _loadMapSenseCompleteStream =
+      StreamController.broadcast();
 
   // MapType get mapType => MapType.values[currentMapTypeIndex];
 
@@ -38,6 +47,7 @@ class HerePandaMapController extends PandaMapController {
   LocationIndicator? _currentLocationIndicator;
 
   final List<MapPolyline> _polylines = [];
+  final List<MapPolygon> _polygons = [];
 
   double _currentZoomLevel = 18; // in [0, 22]
 
@@ -57,11 +67,7 @@ class HerePandaMapController extends PandaMapController {
 
   void onMapCreated(HereMapController controller) {
     load(() async {
-      // onMapCreated may be called many times by MapScreen due to back to home screen
-      if (_controllerCompleter.isCompleted) {
-        _controllerCompleter = Completer();
-      }
-      _controllerCompleter.complete(controller);
+      _controllerStream.add(controller);
       _controller = controller;
 
       // Setup current location indicator
@@ -72,15 +78,15 @@ class HerePandaMapController extends PandaMapController {
       await focusCurrentLocation(animate: false);
 
       // Load map
-      Completer<bool> loadComplete = Completer<bool>();
       controller.mapScene.loadSceneForMapScheme(
-        MapScheme.normalDay,
+        MapScheme.liteDay,
         (MapError? error) async {
           if (error != null) {
             log('Map scene not loaded. MapError: ${error.toString()}');
+            _loadMapSenseCompleteStream.addError(error);
             return;
           }
-          loadComplete.complete(true);
+          _loadMapSenseCompleteStream.add(true);
         },
       );
 
@@ -121,6 +127,7 @@ class HerePandaMapController extends PandaMapController {
           GeoPolygon.withGeoCircle(geoCircle),
           color,
         );
+        _polygons.add(mapPolygon);
         controller.mapScene.addMapPolygon(mapPolygon);
       },
     );
@@ -173,19 +180,22 @@ class HerePandaMapController extends PandaMapController {
 
   @override
   void onLocationChanged(MapCurrentLocation location) {
-    updateCurLocationIndicator(location);
+    if (!PandaMap.routingController.isNavigating) {
+      updateCurLocationIndicator(location);
+    } // else -> RoutingController will update ccurrent lcoation for updating route & location same time
   }
 
   void updateCurLocationIndicator(MapCurrentLocation? currentLocation) {
     // Run in control() to mark sure called after mapInint
     control((_) async {
       _currentLocationIndicator?.updateLocation(
-        Location.withCoordinates(currentLocation!.toHereMapCoordinate()),
+        Location.withCoordinates(currentLocation!.toHereMapCoordinate())
+          ..bearingInDegrees = currentLocation.bearingDegrees,
       );
     });
   }
 
-  bool get isMapInitilized => _controllerCompleter.isCompleted;
+  Future<bool> get isMapInitilized => _controllerStream.stream.isEmpty;
 
   int get currentMapTypeIndex => _currentMapTypeIndex;
 
@@ -233,11 +243,6 @@ class HerePandaMapController extends PandaMapController {
       (controller) async {
         _polylines.add(herePolyline);
         controller.mapScene.addMapPolyline(herePolyline);
-        polyline.vertices.forEach(
-          (element) {
-            addCircle(element, 5, Colors.red);
-          },
-        );
       },
     );
     return herePolyline;
@@ -245,7 +250,15 @@ class HerePandaMapController extends PandaMapController {
 
   @override
   void removePolyline(Object polyline) {
-    // TODO: implement removePolyline
+    control(
+      (controller) async {
+        controller.mapScene.removeMapPolyline(polyline as MapPolyline);
+        _polylines.remove(polyline);
+        for (MapPolygon element in _polygons) {
+          controller.mapScene.removeMapPolygon(element);
+        }
+      },
+    );
   }
 
   @override

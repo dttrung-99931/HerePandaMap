@@ -1,6 +1,7 @@
 import 'package:here_sdk/core.dart';
 import 'package:here_sdk/mapview.dart';
 import 'package:here_sdk/routing.dart';
+import 'package:maps_toolkit/maps_toolkit.dart';
 import 'package:panda_map/core/models/map_current_location_style.dart';
 import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_move_action.dart';
@@ -12,6 +13,10 @@ part 'navigation_extensions.dart';
 extension MapLocationExt on MapLocation {
   GeoCoordinates toHereMapCoordinate() {
     return GeoCoordinates(lat, long);
+  }
+
+  LatLng toLatLngPolygonUtil() {
+    return LatLng(lat, long);
   }
 }
 
