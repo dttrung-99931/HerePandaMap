@@ -156,7 +156,7 @@ class HerePandaMapController extends PandaMapController {
   }) async {
     currentLocation ??= await mapService.getCurrentLocation();
     if (currentLocation != null) {
-      focusLocation(currentLocation);
+      focusLocation(currentLocation, animate: animate);
       updateCurLocationIndicator(currentLocation);
     } else {
       log('Google map: FInd location failed');
@@ -169,12 +169,22 @@ class HerePandaMapController extends PandaMapController {
     bool animate = true,
   }) async {
     return control((HereMapController controller) async {
-      MapCameraAnimation amim = MapCameraAnimationFactory.flyTo(
-        GeoCoordinatesUpdate(location.lat, location.long),
-        1,
-        const Duration(milliseconds: 800),
-      );
-      controller.camera.startAnimation(amim);
+      if (animate) {
+        MapCameraAnimation amim = MapCameraAnimationFactory.flyTo(
+          GeoCoordinatesUpdate(location.lat, location.long),
+          1,
+          const Duration(milliseconds: 800),
+        );
+        controller.camera.startAnimation(amim);
+      } else {
+        controller.camera.applyUpdate(
+          MapCameraUpdateFactory.lookAtPoint(
+            GeoCoordinatesUpdate.fromGeoCoordinates(
+              location.toHereMapCoordinate(),
+            ),
+          ),
+        );
+      }
     });
   }
 
