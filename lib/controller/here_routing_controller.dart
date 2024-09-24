@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
 import 'package:here_panda_map/extensions/map_extensions.dart';
+import 'package:here_panda_map/here_map_options.dart';
+import 'package:here_sdk/core.engine.dart';
 import 'package:here_sdk/core.errors.dart';
 import 'package:here_sdk/mapview.dart';
 import 'package:here_sdk/routing.dart';
@@ -15,6 +17,7 @@ import 'package:panda_map/core/models/map_mode.dart';
 import 'package:panda_map/core/models/map_move_step.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
+import 'package:panda_map/panda_map.dart';
 
 class HereRoutingController extends PandaRoutingController {
   HereRoutingController({
@@ -87,12 +90,25 @@ class HereRoutingController extends PandaRoutingController {
   @override
   Future<void> init() async {
     try {
+      final options = (PandaMap.options as HerePandaMapOptions);
+
+      /// SDKNativeEngine.sharedInstance need to be initilized before init RoutingEngine
+      /// Although SDKNativeEngine.sharedInstance was init in [HerePandaMapController.init]
+      /// But for unknown reason, sometime it's still not init here and init RoutingEngine got exception
+      if (SDKNativeEngine.sharedInstance == null) {
+        String accessKeyId = options.mapAPIKeyId;
+        String accessKeySecret = options.mapAPIKey;
+        SDKOptions sdkOptions =
+            SDKOptions.withAccessKeySecret(accessKeyId, accessKeySecret);
+        await SDKNativeEngine.makeSharedInstance(sdkOptions);
+      }
+
       _routingEngine = RoutingEngine.withConnectionSettings(
         RoutingConnectionSettings()
           ..initialConnectionTimeout = const Duration(seconds: 30),
       );
-    } on InstantiationException {
-      throw ("Initialization of RoutingEngine failed.");
+    } on InstantiationException catch (e) {
+      throw ("Initialization of RoutingEngine failed. ${e.error}");
     }
   }
 
@@ -216,5 +232,11 @@ class HereRoutingController extends PandaRoutingController {
       _removeCurrentRoutePolyline();
     }
     _showRoutePolyline(route.polyline);
+  }
+
+  @override
+  void dispose() {
+    _locationChangedSub?.cancel();
+    super.dispose();
   }
 }
