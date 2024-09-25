@@ -8,6 +8,7 @@ import 'package:here_sdk/core.engine.dart';
 import 'package:here_sdk/core.errors.dart';
 import 'package:here_sdk/mapview.dart';
 import 'package:here_sdk/routing.dart';
+import 'package:maps_toolkit/maps_toolkit.dart';
 import 'package:panda_map/core/controllers/pada_routing_controller.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
 import 'package:panda_map/core/models/map_current_location.dart';
@@ -25,24 +26,30 @@ class HereRoutingController extends PandaRoutingController {
   });
 
   final HerePandaMapController mapController;
+
+  /// Engine for handling routing
   late final RoutingEngine _routingEngine;
-
-  /// Hold current shoiwing map polyline
-  MapPolylinePanda? _routePolyline;
-
-  /// Reference to here polyline that created from [_routePolyline]
-  /// Used to delete polyline
-  MapPolyline? _herePolylineRef;
-  MapRoute? _currentRoute; // route from PandaMap plugin
-  Route? _currentHereRoute; // route from heremap sdk
   final BicycleOptions _bicycleoptions = BicycleOptions()
     ..routeOptions.enableTolls = false // Include trạm thu phí
     ..routeOptions.enableRouteHandle =
         true; // Support refreshRoute on location changed
-  StreamSubscription? _locationChangedSub;
 
-  @override
-  bool get isNavigating => _currentRoute != null;
+  /// route from heremap sdk, mapped from [_currentRoute]
+  Route? _currentHereRoute;
+
+  /// route used in PandaMap plugin
+  MapRoute? _currentRoute;
+
+  /// Here polyline of current route
+  /// Reference to here polyline that created from [_routePolyline]
+  /// Used to delete polyline
+  MapPolyline? _herePolylineRef;
+
+  /// Polyline of current route
+  MapPolylinePanda? _routePolyline;
+
+  bool _isRouteUpdating = false;
+  StreamSubscription? _locationChangedSub;
 
   // TODO:
   @override
@@ -50,42 +57,9 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   MapRoute? get currentRoute => _currentRoute;
-  MapRoute get _currentRouteNotNull {
-    if (_currentRoute == null) {
-      throw 'There is no current route. You must start a route before access to this getter';
-    }
-    return _currentRoute!;
-  }
-
-  MapLocation get _destLocation => _currentRoute!.locations.last.location;
 
   @override
-  Future<MapRoute?> findRoute({
-    required MapLocation start,
-    required MapLocation dest,
-  }) {
-    // Current route will be reset when finding a new route
-    _currentRoute = null;
-    _currentHereRoute = null;
-    final startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
-    final destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
-    final List<Waypoint> waypoints = [startWaypoint, destWaypoint];
-    Completer<MapRoute?> completer = Completer();
-    _routingEngine.calculateBicycleRoute(
-      waypoints,
-      _bicycleoptions,
-      (RoutingError? error, List<Route>? routes) async {
-        _onRouteResult(
-          error: error,
-          routes: routes,
-          completer: completer,
-          start: start,
-          dest: dest,
-        );
-      },
-    );
-    return completer.future;
-  }
+  bool get isNavigating => _currentRoute != null;
 
   @override
   Future<void> init() async {
@@ -113,12 +87,55 @@ class HereRoutingController extends PandaRoutingController {
   }
 
   @override
+  void dispose() {
+    _locationChangedSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Future<MapRoute?> findRoute({
+    required MapLocation start,
+    required MapLocation dest,
+  }) async {
+    // Current route will be reset when finding a new route
+    _currentRoute = null;
+    _currentHereRoute = null;
+    final startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
+    final destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
+    final List<Waypoint> waypoints = [startWaypoint, destWaypoint];
+    Completer<List<Route>> completer = Completer();
+    _routingEngine.calculateBicycleRoute(
+      waypoints,
+      _bicycleoptions,
+      (RoutingError? error, List<Route>? routes) async {
+        _onRouteResult(
+          error: error,
+          routes: routes,
+          routesResultCompleter: completer,
+          start: start,
+          dest: dest,
+        );
+      },
+    );
+    List<Route> routes = await completer.future;
+    return _toMapRoute(routes.first, start, dest);
+  }
+
+  @override
+  Future<void> showRoute(MapRoute route) async {
+    mapController.focusCurrentLocation();
+    await Future.delayed(const Duration(milliseconds: 300));
+    _showRoutePolyline(route.polyline);
+  }
+
+  @override
   Future<void> startNavigation(MapRoute route) async {
     _currentRoute = route;
     mapController.changeMode(MapMode.navigation);
     mapController.changeCurrentLocationStyle(
       MapCurrentLocationStyle.navigation,
     );
+    _locationChangedSub?.cancel();
     _locationChangedSub = mapController.locationChangedStream.listen(
       _onLocationChanged,
     );
@@ -131,56 +148,72 @@ class HereRoutingController extends PandaRoutingController {
     _locationChangedSub?.cancel();
   }
 
-  @override
-  Future<void> showRoute(MapRoute route) async {
-    mapController.focusCurrentLocation();
-    await Future.delayed(const Duration(milliseconds: 300));
-    _showRoutePolyline(route.polyline);
+  MapRoute get _currentRouteNotNull {
+    if (_currentRoute == null) {
+      throw 'There is no current route. You must start a route before access to this getter';
+    }
+    return _currentRoute!;
   }
 
+  MapLocation get _destLocation => _currentRoute!.locations.last.location;
+
   Future<void> _onLocationChanged(MapCurrentLocation current) async {
-    await mapController.focusCurrentLocation(
+    // focusCurrentLocation, rotateMap & updateRoute in the same time.
+    // No need to wait each other done
+    mapController.focusCurrentLocation(
       currentLocation: current,
       animate: false,
     );
     if (_currentRoute != null) {
-      _updateRoute(current);
+      mapController.rotateMap(current, current.bearingDegrees);
+      const int toleranceInMetters = 10; // sai so
+      int nearestPointIdx = PolygonUtil.locationIndexOnPath(
+        current.toLatLngPolygonUtil(),
+        _routePolyline!.vertices
+            .map((MapLocation point) => point.toLatLngPolygonUtil())
+            .toList(),
+        false,
+        tolerance: toleranceInMetters,
+      );
+      if (nearestPointIdx != -1) {
+        // Remove passed vertices
+        List<MapLocation> updatedVertices = _routePolyline!.vertices
+          ..removeRange(0, nearestPointIdx + 1);
+        // Add currentLocation as new a vertice if the space is enough large.
+        // Always adding current location may causing the polyline is incorrect
+        // in case of current location is outside of the polyline
+        if (updatedVertices.isNotEmpty &&
+            updatedVertices.first.distanceInMetters(current) >=
+                toleranceInMetters) {
+          updatedVertices.insert(0, current);
+        }
+        _routePolyline = _routePolyline?.copyWith(vertices: updatedVertices);
+        _showUpdateRoutePolyline(_routePolyline!);
+      } else {
+        // TODO: hanlde re-route
+      }
+      // _updateCurrentRoute(current);
     }
   }
 
+  /// Handle routes results
+  /// complete [routesResultCompleter] when success,
+  /// otherwise [routesResultCompleter]completeError with error message
   void _onRouteResult({
     required RoutingError? error,
     required List<Route>? routes,
-    required Completer<MapRoute?> completer,
     required MapLocation start,
     required MapLocation dest,
+    required Completer<List<Route>> routesResultCompleter,
   }) {
     if (error != null) {
-      completer.completeError(error);
+      routesResultCompleter.completeError(error);
       return;
     }
     if (routes == null || routes.isEmpty) {
-      completer.complete(null);
+      routesResultCompleter.completeError('Cannot found any routes');
     }
-
-    final Route hereRoute = routes!.first;
-    _currentHereRoute = hereRoute;
-    // final MapAddressComponent? startAddr = await _getAddressByGeo(start);
-    // final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
-    final List<Maneuver> moveSteps = hereRoute.sections
-        .fold([], (steps, sec) => [...steps, ...sec.maneuvers]);
-    final MapRoute route = MapRoute(
-      polyline: MapPolylinePanda.fromVertices(
-        hereRoute.geometry.vertices.map((e) => e.toMapLocation()).toList(),
-      ),
-      locations: [
-        MapAddressLocation(location: start, address: null),
-        MapAddressLocation(location: dest, address: null),
-      ],
-      moveSteps:
-          moveSteps.map((Maneuver moveStep) => moveStep.toMoveStep()).toList(),
-    );
-    completer.complete(route);
+    routesResultCompleter.complete(routes);
   }
 
   void _removeCurrentRoutePolyline() {
@@ -196,8 +229,14 @@ class HereRoutingController extends PandaRoutingController {
     _herePolylineRef = mapController.addPolyline(polyline) as MapPolyline;
   }
 
-  Future<void> _updateRoute(MapCurrentLocation currentLocation) async {
-    Completer<MapRoute?> completer = Completer();
+  /// Update route with latest current location
+  /// If _updateCurrentRoute is excuting, other _updateCurrentRoute call will be ignored
+  Future<void> _updateCurrentRoute(MapCurrentLocation currentLocation) async {
+    if (_isRouteUpdating) {
+      return;
+    }
+    _isRouteUpdating = true;
+    Completer<List<Route>> completer = Completer();
     _routingEngine.refreshRoute(
       _currentHereRoute!.routeHandle!,
       Waypoint(currentLocation.toHereMapCoordinate()),
@@ -206,37 +245,54 @@ class HereRoutingController extends PandaRoutingController {
         _onRouteResult(
           error: error,
           routes: routes,
-          completer: completer,
+          routesResultCompleter: completer,
           start: currentLocation,
           dest: _destLocation,
         );
       },
     );
-
-    MapRoute? updatedRoute;
     try {
-      updatedRoute = await completer.future;
+      List<Route> updatedRoutes = await completer.future;
+      _currentHereRoute = updatedRoutes.first;
+      _currentRoute = _toMapRoute(
+        updatedRoutes.first,
+        currentLocation,
+        _destLocation,
+      );
+      _showUpdateRoutePolyline(_currentRoute!.polyline);
     } on RoutingError catch (error) {
       if (error == RoutingError.couldNotMatchOrigin) {
         // TODO: re-route
       }
     }
-    if (updatedRoute != null) {
-      _updateRoutePolyline(updatedRoute);
-    }
+    _isRouteUpdating = false;
   }
 
-  Future<void> _updateRoutePolyline(MapRoute route) async {
-    _currentRoute = route;
+  /// Map Route (here route) to MapRoute (route defiend by PandaMap plugin)
+  /// MapRoute includes polyline, locations (start, dest), move steps
+  MapRoute _toMapRoute(Route hereRoute, MapLocation start, MapLocation dest) {
+    // final MapAddressComponent? startAddr = await _getAddressByGeo(start);
+    // final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
+    final List<Maneuver> moveSteps = hereRoute.sections
+        .fold([], (steps, sec) => [...steps, ...sec.maneuvers]);
+    final MapRoute route = MapRoute(
+      polyline: MapPolylinePanda.fromVertices(
+        hereRoute.geometry.vertices.map((e) => e.toMapLocation()).toList(),
+      ),
+      locations: [
+        MapAddressLocation(location: start, address: null),
+        MapAddressLocation(location: dest, address: null),
+      ],
+      moveSteps:
+          moveSteps.map((Maneuver moveStep) => moveStep.toMoveStep()).toList(),
+    );
+    return route;
+  }
+
+  Future<void> _showUpdateRoutePolyline(MapPolylinePanda polyline) async {
     if (_routePolyline != null) {
       _removeCurrentRoutePolyline();
     }
-    _showRoutePolyline(route.polyline);
-  }
-
-  @override
-  void dispose() {
-    _locationChangedSub?.cancel();
-    super.dispose();
+    _showRoutePolyline(polyline);
   }
 }

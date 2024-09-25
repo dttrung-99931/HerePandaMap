@@ -176,15 +176,31 @@ class HerePandaMapController extends PandaMapController {
           const Duration(milliseconds: 800),
         );
         controller.camera.startAnimation(amim);
-      } else {
-        controller.camera.applyUpdate(
-          MapCameraUpdateFactory.lookAtPoint(
-            GeoCoordinatesUpdate.fromGeoCoordinates(
-              location.toHereMapCoordinate(),
-            ),
-          ),
-        );
+        return;
       }
+
+      controller.camera.applyUpdate(
+        MapCameraUpdateFactory.lookAtPoint(
+          GeoCoordinatesUpdate.fromGeoCoordinates(
+            location.toHereMapCoordinate(),
+          ),
+        ),
+      );
+    });
+  }
+
+  Future<void> rotateMap(MapLocation location, double bearingInDegree) {
+    return control((controller) async {
+      controller.camera.startAnimation(
+        MapCameraAnimationFactory.flyToWithOrientation(
+          GeoCoordinatesUpdate.fromGeoCoordinates(
+            location.toHereMapCoordinate(),
+          ),
+          GeoOrientationUpdate(bearingInDegree, null),
+          1,
+          const Duration(milliseconds: 400),
+        ),
+      );
     });
   }
 
