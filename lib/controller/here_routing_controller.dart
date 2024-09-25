@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
 import 'package:here_panda_map/extensions/map_extensions.dart';
@@ -125,6 +126,19 @@ class HereRoutingController extends PandaRoutingController {
   Future<void> showRoute(MapRoute route) async {
     mapController.focusCurrentLocation();
     await Future.delayed(const Duration(milliseconds: 300));
+    mapController.lookAtAreaInsideRectangle(
+      area: route.boundingBox,
+      topLeftRect: Offset(
+        mapController.mapViewPort.width * 0.08,
+        mapController.mapViewPort.height * 0.08,
+      ),
+      rectSize: Size(
+        // 0.84 = 2*paddingVerticalRatio
+        mapController.mapViewPort.width * 0.84,
+        // 0.84 = 2*paddingHorzRatio
+        mapController.mapViewPort.height * 0.84,
+      ),
+    );
     _showRoutePolyline(route.polyline);
   }
 
@@ -273,8 +287,10 @@ class HereRoutingController extends PandaRoutingController {
   MapRoute _toMapRoute(Route hereRoute, MapLocation start, MapLocation dest) {
     // final MapAddressComponent? startAddr = await _getAddressByGeo(start);
     // final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
-    final List<Maneuver> moveSteps = hereRoute.sections
-        .fold([], (steps, sec) => [...steps, ...sec.maneuvers]);
+    final List<Maneuver> moveSteps = hereRoute.sections.fold(
+      [],
+      (steps, sec) => [...steps, ...sec.maneuvers],
+    );
     final MapRoute route = MapRoute(
       polyline: MapPolylinePanda.fromVertices(
         hereRoute.geometry.vertices.map((e) => e.toMapLocation()).toList(),
@@ -285,6 +301,7 @@ class HereRoutingController extends PandaRoutingController {
       ],
       moveSteps:
           moveSteps.map((Maneuver moveStep) => moveStep.toMoveStep()).toList(),
+      boundingBox: hereRoute.boundingBox.toMapBoundingBox(),
     );
     return route;
   }

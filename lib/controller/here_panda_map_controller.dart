@@ -11,6 +11,7 @@ import 'package:here_sdk/core.errors.dart';
 import 'package:here_sdk/mapview.dart';
 import 'package:panda_map/assets/assets.dart';
 import 'package:panda_map/core/controllers/panda_map_controller.dart';
+import 'package:panda_map/core/models/map_bounding_box.dart';
 import 'package:panda_map/core/models/map_current_location.dart';
 import 'package:panda_map/core/models/map_current_location_style.dart';
 import 'package:panda_map/core/models/map_lat_lng.dart';
@@ -50,6 +51,8 @@ class HerePandaMapController extends PandaMapController {
   final List<MapPolygon> _polygons = [];
 
   double _currentZoomLevel = 18; // in [0, 22]
+
+  Size2D get mapViewPort => controller.viewportSize;
 
   @override
   Future<void> initMap(covariant HerePandaMapOptions options) async {
@@ -178,7 +181,6 @@ class HerePandaMapController extends PandaMapController {
         controller.camera.startAnimation(amim);
         return;
       }
-
       controller.camera.applyUpdate(
         MapCameraUpdateFactory.lookAtPoint(
           GeoCoordinatesUpdate.fromGeoCoordinates(
@@ -311,5 +313,30 @@ class HerePandaMapController extends PandaMapController {
   void changeCurrentLocationStyle(MapCurrentLocationStyle style) {
     _currentLocationIndicator?.locationIndicatorStyle =
         style.toHereCurrentLocationStyle();
+  }
+
+  @override
+  void lookAtArea(MapBoundingBox area) {
+    control((controller) async {
+      controller.camera.applyUpdate(
+        MapCameraUpdateFactory.lookAtArea(area.toGeoBox()),
+      );
+    });
+  }
+
+  @override
+  void lookAtAreaInsideRectangle({
+    required MapBoundingBox area,
+    required Offset topLeftRect,
+    required Size rectSize,
+  }) {
+    control((controller) async {
+      controller.camera.applyUpdate(
+        MapCameraUpdateFactory.lookAtAreaWithViewRectangle(
+          area.toGeoBox(),
+          Rectangle2D(topLeftRect.toPoint2D(), rectSize.toSize2D()),
+        ),
+      );
+    });
   }
 }
