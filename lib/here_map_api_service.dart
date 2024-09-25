@@ -43,9 +43,9 @@ class HereMapAPIService implements MapAPIService {
           return;
         }
         MapSearchResultDto searchResult = MapSearchResultDto(
-            places: (places ?? []).map(
-          (place) {
-            return MapPlaceDto(
+          places: (places ?? []).map(
+            (place) {
+              return MapPlaceDto(
                 placeId: place.id,
                 formattedAddress: place.address.addressText,
                 displayName: MapPlaceNameDto(
@@ -56,9 +56,11 @@ class HereMapAPIService implements MapAPIService {
                   latitude: place.geoCoordinates?.latitude ?? -1,
                   longitude: place.geoCoordinates?.longitude ?? -1,
                 ),
-                addressComponent: HereAddressComponentDto.fromPlace(place));
-          },
-        ).toList());
+                addressComponent: HereAddressComponentDto.fromPlace(place),
+              );
+            },
+          ).toList(),
+        );
         completer.complete(searchResult);
       },
     );

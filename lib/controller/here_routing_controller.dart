@@ -11,6 +11,8 @@ import 'package:here_sdk/mapview.dart';
 import 'package:here_sdk/routing.dart';
 import 'package:maps_toolkit/maps_toolkit.dart';
 import 'package:panda_map/core/controllers/pada_routing_controller.dart';
+import 'package:panda_map/core/dtos/map_address_component_dto.dart';
+import 'package:panda_map/core/models/map_address_component_dto.dart';
 import 'package:panda_map/core/models/map_address_location.dart';
 import 'package:panda_map/core/models/map_current_location.dart';
 import 'package:panda_map/core/models/map_current_location_style.dart';
@@ -19,14 +21,23 @@ import 'package:panda_map/core/models/map_mode.dart';
 import 'package:panda_map/core/models/map_move_step.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
+import 'package:panda_map/core/services/map_api_service.dart';
 import 'package:panda_map/panda_map.dart';
+
+enum HereRoutingStatus {
+  previewRoute,
+  navigating,
+  noRouting,
+}
 
 class HereRoutingController extends PandaRoutingController {
   HereRoutingController({
     required this.mapController,
+    required this.service,
   });
 
   final HerePandaMapController mapController;
+  final MapAPIService service;
 
   /// Engine for handling routing
   late final RoutingEngine _routingEngine;
@@ -35,11 +46,18 @@ class HereRoutingController extends PandaRoutingController {
     ..routeOptions.enableRouteHandle =
         true; // Support refreshRoute on location changed
 
+  HereRoutingStatus get status => _status;
+  HereRoutingStatus _status = HereRoutingStatus.noRouting;
+
   /// route from heremap sdk, mapped from [_currentRoute]
   Route? _currentHereRoute;
 
   /// route used in PandaMap plugin
   MapRoute? _currentRoute;
+
+  /// Route in [HereRoutingStatus.previewRoute]
+  MapRoute? _previewRoute;
+  MapRoute get previewRoute => _previewRoute!;
 
   /// Here polyline of current route
   /// Reference to here polyline that created from [_routePolyline]
@@ -99,6 +117,7 @@ class HereRoutingController extends PandaRoutingController {
     required MapLocation dest,
   }) async {
     // Current route will be reset when finding a new route
+    _previewRoute = null;
     _currentRoute = null;
     _currentHereRoute = null;
     final startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
@@ -124,6 +143,9 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   Future<void> showRoute(MapRoute route) async {
+    _status = HereRoutingStatus.previewRoute;
+    _previewRoute = route;
+    mapController.changeMode(MapMode.navigation);
     mapController.focusCurrentLocation();
     await Future.delayed(const Duration(milliseconds: 300));
     mapController.lookAtAreaInsideRectangle(
@@ -144,8 +166,10 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   Future<void> startNavigation(MapRoute route) async {
+    _status = HereRoutingStatus.navigating;
     _currentRoute = route;
-    mapController.changeMode(MapMode.navigation);
+    _previewRoute = null;
+    notifyListeners();
     mapController.changeCurrentLocationStyle(
       MapCurrentLocationStyle.navigation,
     );
@@ -157,6 +181,8 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   Future<void> stopNavigation() async {
+    mapController.changeMode(MapMode.normal);
+    _status = HereRoutingStatus.noRouting;
     _currentRoute = null;
     _currentHereRoute = null;
     _locationChangedSub?.cancel();
@@ -268,7 +294,7 @@ class HereRoutingController extends PandaRoutingController {
     try {
       List<Route> updatedRoutes = await completer.future;
       _currentHereRoute = updatedRoutes.first;
-      _currentRoute = _toMapRoute(
+      _currentRoute = await _toMapRoute(
         updatedRoutes.first,
         currentLocation,
         _destLocation,
@@ -284,9 +310,14 @@ class HereRoutingController extends PandaRoutingController {
 
   /// Map Route (here route) to MapRoute (route defiend by PandaMap plugin)
   /// MapRoute includes polyline, locations (start, dest), move steps
-  MapRoute _toMapRoute(Route hereRoute, MapLocation start, MapLocation dest) {
-    // final MapAddressComponent? startAddr = await _getAddressByGeo(start);
-    // final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
+  Future<MapRoute> _toMapRoute(
+    Route hereRoute,
+    MapLocation start,
+    MapLocation dest,
+  ) async {
+    // TODO: get from server instead to optimize re-geocoding requests
+    final MapAddressComponent? startAddr = await _getAddressByGeo(start);
+    final MapAddressComponent? destAddr = await _getAddressByGeo(dest);
     final List<Maneuver> moveSteps = hereRoute.sections.fold(
       [],
       (steps, sec) => [...steps, ...sec.maneuvers],
@@ -296,14 +327,20 @@ class HereRoutingController extends PandaRoutingController {
         hereRoute.geometry.vertices.map((e) => e.toMapLocation()).toList(),
       ),
       locations: [
-        MapAddressLocation(location: start, address: null),
-        MapAddressLocation(location: dest, address: null),
+        MapAddressLocation(location: start, address: startAddr),
+        MapAddressLocation(location: dest, address: destAddr)
       ],
       moveSteps:
           moveSteps.map((Maneuver moveStep) => moveStep.toMoveStep()).toList(),
       boundingBox: hereRoute.boundingBox.toMapBoundingBox(),
     );
     return route;
+  }
+
+  Future<MapAddressComponent?> _getAddressByGeo(MapLocation location) async {
+    final MapAddressComponentDto? addr =
+        await service.getAddressByGeo(location);
+    return addr != null ? MapAddressComponent.fromDto(addr) : null;
   }
 
   Future<void> _showUpdateRoutePolyline(MapPolylinePanda polyline) async {

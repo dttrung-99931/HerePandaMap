@@ -30,8 +30,13 @@ class HerePandaMapPluggin extends PandaMapPlugin {
 
   @override
   PandaRoutingController createRoutingController(
-      covariant HerePandaMapController mapController) {
-    return HereRoutingController(mapController: mapController);
+    covariant HerePandaMapController mapController,
+    covariant HereMapAPIService service,
+  ) {
+    return HereRoutingController(
+      mapController: mapController,
+      service: service,
+    );
   }
 
   @override
@@ -44,9 +49,11 @@ class HerePandaMapPluggin extends PandaMapPlugin {
 
   @override
   Widget buildMapOverlay(BuildContext context, MapMode mode) {
-    if (mode == MapMode.navigation) {
-      return HereMapNavigationOverlay();
+    switch (mode) {
+      case MapMode.navigation:
+        return HereMapNavigationOverlay();
+      case MapMode.normal:
+        return super.buildMapOverlay(context, mode);
     }
-    return super.buildMapOverlay(context, mode);
   }
 }
