@@ -23,6 +23,7 @@ import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/core/models/map_route.dart';
 import 'package:panda_map/core/services/map_api_service.dart';
 import 'package:panda_map/panda_map.dart';
+import 'package:panda_map/utils/constants.dart';
 
 enum HereRoutingStatus {
   previewRoute,
@@ -41,7 +42,7 @@ class HereRoutingController extends PandaRoutingController {
 
   /// Engine for handling routing
   late final RoutingEngine _routingEngine;
-  final BicycleOptions _bicycleoptions = BicycleOptions()
+  final CarOptions _carRouteOptions = CarOptions()
     ..routeOptions.enableTolls = false // Include trạm thu phí
     ..routeOptions.enableRouteHandle =
         true; // Support refreshRoute on location changed
@@ -124,9 +125,9 @@ class HereRoutingController extends PandaRoutingController {
     final destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
     final List<Waypoint> waypoints = [startWaypoint, destWaypoint];
     Completer<List<Route>> completer = Completer();
-    _routingEngine.calculateBicycleRoute(
+    _routingEngine.calculateCarRoute(
       waypoints,
-      _bicycleoptions,
+      _carRouteOptions,
       (RoutingError? error, List<Route>? routes) async {
         _onRouteResult(
           error: error,
@@ -173,6 +174,8 @@ class HereRoutingController extends PandaRoutingController {
     mapController.changeCurrentLocationStyle(
       MapCurrentLocationStyle.navigation,
     );
+    mapController.focusCurrentLocation();
+    mapController.zoom(Constants.defaultZoomLevel);
     _locationChangedSub?.cancel();
     _locationChangedSub = mapController.locationChangedStream.listen(
       _onLocationChanged,
@@ -200,10 +203,7 @@ class HereRoutingController extends PandaRoutingController {
   Future<void> _onLocationChanged(MapCurrentLocation current) async {
     // focusCurrentLocation, rotateMap & updateRoute in the same time.
     // No need to wait each other done
-    mapController.focusCurrentLocation(
-      currentLocation: current,
-      animate: false,
-    );
+    mapController.focusCurrentLocation(currentLocation: current);
     if (_currentRoute != null) {
       mapController.rotateMap(current, current.bearingDegrees);
       const int toleranceInMetters = 10; // sai so
@@ -232,7 +232,6 @@ class HereRoutingController extends PandaRoutingController {
       } else {
         // TODO: hanlde re-route
       }
-      // _updateCurrentRoute(current);
     }
   }
 
@@ -280,7 +279,7 @@ class HereRoutingController extends PandaRoutingController {
     _routingEngine.refreshRoute(
       _currentHereRoute!.routeHandle!,
       Waypoint(currentLocation.toHereMapCoordinate()),
-      RefreshRouteOptions.withBicycleOptions(_bicycleoptions),
+      RefreshRouteOptions.withCarOptions(_carRouteOptions),
       (RoutingError? error, List<Route>? routes) {
         _onRouteResult(
           error: error,
@@ -344,9 +343,12 @@ class HereRoutingController extends PandaRoutingController {
   }
 
   Future<void> _showUpdateRoutePolyline(MapPolylinePanda polyline) async {
-    if (_routePolyline != null) {
-      _removeCurrentRoutePolyline();
-    }
+    // Keep old polyline to remove
+    MapPolyline? removedPolyline = _herePolylineRef;
+    // Show new polyline before removing to improve lagging when updating polyline
     _showRoutePolyline(polyline);
+    if (removedPolyline != null) {
+      mapController.removePolyline(removedPolyline);
+    }
   }
 }

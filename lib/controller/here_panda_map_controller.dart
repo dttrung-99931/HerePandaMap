@@ -19,6 +19,7 @@ import 'package:panda_map/core/models/map_location.dart';
 import 'package:panda_map/core/models/map_polyline.dart';
 import 'package:panda_map/panda_map.dart';
 import 'package:panda_map/utils/asset_utils.dart';
+import 'package:panda_map/utils/constants.dart';
 
 class HerePandaMapController extends PandaMapController {
   HerePandaMapController();
@@ -50,7 +51,8 @@ class HerePandaMapController extends PandaMapController {
   final List<MapPolyline> _polylines = [];
   final List<MapPolygon> _polygons = [];
 
-  double _currentZoomLevel = 18; // in [0, 22]
+  double get currentZoomLevel =>
+      controller.camera.state.zoomLevel; // in [0, 22]
 
   Size2D get mapViewPort => controller.viewportSize;
 
@@ -170,13 +172,15 @@ class HerePandaMapController extends PandaMapController {
   Future<void> focusLocation(
     MapLocation location, {
     bool animate = true,
+    Duration animationDuration = Constants.animationDuration,
+    double bowFactor = 1,
   }) async {
     return control((HereMapController controller) async {
       if (animate) {
         MapCameraAnimation amim = MapCameraAnimationFactory.flyTo(
           GeoCoordinatesUpdate(location.lat, location.long),
-          1,
-          const Duration(milliseconds: 800),
+          bowFactor,
+          animationDuration,
         );
         controller.camera.startAnimation(amim);
         return;
@@ -199,8 +203,8 @@ class HerePandaMapController extends PandaMapController {
             location.toHereMapCoordinate(),
           ),
           GeoOrientationUpdate(bearingInDegree, null),
-          1,
-          const Duration(milliseconds: 400),
+          0,
+          Constants.animationDuration,
         ),
       );
     });
@@ -291,21 +295,21 @@ class HerePandaMapController extends PandaMapController {
 
   @override
   void zoomIn() {
-    if (_currentZoomLevel <= minZoomLevel) {
+    if (currentZoomLevel <= minZoomLevel) {
       return;
     }
     control((controller) async {
-      controller.camera.zoomTo(_currentZoomLevel--);
+      controller.camera.zoomTo(currentZoomLevel - 1);
     });
   }
 
   @override
   void zoomOut() {
-    if (_currentZoomLevel >= maxZoomLevel) {
+    if (currentZoomLevel >= maxZoomLevel) {
       return;
     }
     control((controller) async {
-      controller.camera.zoomTo(_currentZoomLevel++);
+      controller.camera.zoomTo(currentZoomLevel + 1);
     });
   }
 
@@ -338,5 +342,14 @@ class HerePandaMapController extends PandaMapController {
         ),
       );
     });
+  }
+
+  @override
+  void zoom(double zoomLevel) {
+    if (currentZoomLevel != zoomLevel) {
+      control((controller) async {
+        controller.camera.zoomTo(zoomLevel);
+      });
+    }
   }
 }
