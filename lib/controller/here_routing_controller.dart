@@ -58,7 +58,8 @@ class HereRoutingController extends PandaRoutingController {
 
   /// Route in [HereRoutingStatus.previewRoute]
   MapRoute? _previewRoute;
-  MapRoute get previewRoute => _previewRoute!;
+  @override
+  MapRoute? get previewRoute => _previewRoute;
 
   /// Here polyline of current route
   /// Reference to here polyline that created from [_routePolyline]
@@ -163,6 +164,7 @@ class HereRoutingController extends PandaRoutingController {
       ),
     );
     _showRoutePolyline(route.polyline);
+    notifyListeners();
   }
 
   @override
@@ -332,6 +334,8 @@ class HereRoutingController extends PandaRoutingController {
       moveSteps:
           moveSteps.map((Maneuver moveStep) => moveStep.toMoveStep()).toList(),
       boundingBox: hereRoute.boundingBox.toMapBoundingBox(),
+      lengthInMeters: hereRoute.lengthInMeters,
+      durationInMinutes: hereRoute.duration.inMinutes,
     );
     return route;
   }

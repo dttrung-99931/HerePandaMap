@@ -25,7 +25,7 @@ class HereMapNavigationOverlay extends StatelessWidget {
           switch (routingController.status) {
             case HereRoutingStatus.previewRoute:
               return PreviewRouteOverlay(
-                routeLocations: routingController.previewRoute.locations,
+                routeLocations: routingController.previewRoute!.locations,
                 routingController: routingController,
               );
             case HereRoutingStatus.navigating:
@@ -68,7 +68,7 @@ class PreviewRouteOverlay extends StatelessWidget {
                 MapActionButton(
                   onPressed: () {
                     routingController.startNavigation(
-                      routingController.previewRoute,
+                      routingController.previewRoute!,
                     );
                   },
                   icon: Icons.navigation_outlined,
