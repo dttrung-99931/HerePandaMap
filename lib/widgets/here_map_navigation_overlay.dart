@@ -23,14 +23,14 @@ class HereMapNavigationOverlay extends StatelessWidget {
         animation: routingController,
         builder: (context, child) {
           switch (routingController.status) {
-            case HereRoutingStatus.previewRoute:
+            case PandaRoutingStatus.previewRoute:
               return PreviewRouteOverlay(
                 routeLocations: routingController.previewRoute!.locations,
                 routingController: routingController,
               );
-            case HereRoutingStatus.navigating:
+            case PandaRoutingStatus.navigating:
               return NoRoutingOverlay(routingController: routingController);
-            case HereRoutingStatus.noRouting:
+            case PandaRoutingStatus.noRouting:
               return NoRoutingOverlay(routingController: routingController);
           }
         },

@@ -25,12 +25,6 @@ import 'package:panda_map/core/services/map_api_service.dart';
 import 'package:panda_map/panda_map.dart';
 import 'package:panda_map/utils/constants.dart';
 
-enum HereRoutingStatus {
-  previewRoute,
-  navigating,
-  noRouting,
-}
-
 class HereRoutingController extends PandaRoutingController {
   HereRoutingController({
     required this.mapController,
@@ -47,8 +41,9 @@ class HereRoutingController extends PandaRoutingController {
     ..routeOptions.enableRouteHandle =
         true; // Support refreshRoute on location changed
 
-  HereRoutingStatus get status => _status;
-  HereRoutingStatus _status = HereRoutingStatus.noRouting;
+  @override
+  PandaRoutingStatus get status => _status;
+  PandaRoutingStatus _status = PandaRoutingStatus.noRouting;
 
   /// route from heremap sdk, mapped from [_currentRoute]
   Route? _currentHereRoute;
@@ -56,7 +51,7 @@ class HereRoutingController extends PandaRoutingController {
   /// route used in PandaMap plugin
   MapRoute? _currentRoute;
 
-  /// Route in [HereRoutingStatus.previewRoute]
+  /// Route in [PandaRoutingStatus.previewRoute]
   MapRoute? _previewRoute;
   @override
   MapRoute? get previewRoute => _previewRoute;
@@ -81,6 +76,12 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   bool get isNavigating => _currentRoute != null;
+
+  @override
+  Stream<MapCurrentLocation> get movingLocationStream =>
+      _movingLocationStream.stream;
+  final StreamController<MapCurrentLocation> _movingLocationStream =
+      StreamController<MapCurrentLocation>.broadcast();
 
   @override
   Future<void> init() async {
@@ -145,7 +146,7 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   Future<void> showRoute(MapRoute route) async {
-    _status = HereRoutingStatus.previewRoute;
+    _status = PandaRoutingStatus.previewRoute;
     _previewRoute = route;
     mapController.changeMode(MapMode.navigation);
     mapController.focusCurrentLocation();
@@ -169,7 +170,7 @@ class HereRoutingController extends PandaRoutingController {
 
   @override
   Future<void> startNavigation(MapRoute route) async {
-    _status = HereRoutingStatus.navigating;
+    _status = PandaRoutingStatus.navigating;
     _currentRoute = route;
     _previewRoute = null;
     notifyListeners();
@@ -187,7 +188,7 @@ class HereRoutingController extends PandaRoutingController {
   @override
   Future<void> stopNavigation() async {
     mapController.changeMode(MapMode.normal);
-    _status = HereRoutingStatus.noRouting;
+    _status = PandaRoutingStatus.noRouting;
     _currentRoute = null;
     _currentHereRoute = null;
     _locationChangedSub?.cancel();
@@ -208,7 +209,7 @@ class HereRoutingController extends PandaRoutingController {
     mapController.focusCurrentLocation(currentLocation: current);
     if (_currentRoute != null) {
       mapController.rotateMap(current, current.bearingDegrees);
-      const int toleranceInMetters = 10; // sai so
+      const int toleranceInMetters = Constants.toleranceInMetters; // sai so
       int nearestPointIdx = PolygonUtil.locationIndexOnPath(
         current.toLatLngPolygonUtil(),
         _routePolyline!.vertices
@@ -231,8 +232,12 @@ class HereRoutingController extends PandaRoutingController {
         }
         _routePolyline = _routePolyline?.copyWith(vertices: updatedVertices);
         _showUpdateRoutePolyline(_routePolyline!);
+        _movingLocationStream.add(current);
       } else {
         // TODO: hanlde re-route
+
+        // TODO: handle movingLocationStream on re-route. Currently treat as normal locaiton changed
+        _movingLocationStream.add(current);
       }
     }
   }
