@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ui';
 
 import 'package:here_panda_map/controller/here_panda_map_controller.dart';
@@ -39,14 +40,11 @@ class HereRoutingController extends PandaRoutingController {
   final CarOptions _carRouteOptions = CarOptions()
     ..routeOptions.enableTolls = false // Include trạm thu phí
     ..routeOptions.enableRouteHandle =
-        true; // Support refreshRoute on location changed
+        true; // Support refreshRoute on location changed to get remaining length
 
   @override
   PandaRoutingStatus get status => _status;
   PandaRoutingStatus _status = PandaRoutingStatus.noRouting;
-
-  /// route from heremap sdk, mapped from [_currentRoute]
-  Route? _currentHereRoute;
 
   /// route used in PandaMap plugin
   MapRoute? _currentRoute;
@@ -64,7 +62,6 @@ class HereRoutingController extends PandaRoutingController {
   /// Polyline of current route
   MapPolylinePanda? _routePolyline;
 
-  bool _isRouteUpdating = false;
   StreamSubscription? _locationChangedSub;
 
   // TODO:
@@ -82,6 +79,10 @@ class HereRoutingController extends PandaRoutingController {
       _movingLocationStream.stream;
   final StreamController<MapCurrentLocation> _movingLocationStream =
       StreamController<MapCurrentLocation>.broadcast();
+
+  @override
+  int get remainingRouteLengthInMetter => _remainingRouteLengthInMetter;
+  int _remainingRouteLengthInMetter = 0;
 
   @override
   Future<void> init() async {
@@ -122,7 +123,6 @@ class HereRoutingController extends PandaRoutingController {
     // Current route will be reset when finding a new route
     _previewRoute = null;
     _currentRoute = null;
-    _currentHereRoute = null;
     final startWaypoint = Waypoint.withDefaults(start.toHereMapCoordinate());
     final destWaypoint = Waypoint.withDefaults(dest.toHereMapCoordinate());
     final List<Waypoint> waypoints = [startWaypoint, destWaypoint];
@@ -171,7 +171,7 @@ class HereRoutingController extends PandaRoutingController {
   @override
   Future<void> startNavigation(MapRoute route) async {
     _status = PandaRoutingStatus.navigating;
-    _currentRoute = route;
+    _currentRoute = route as MapRoute;
     _previewRoute = null;
     notifyListeners();
     mapController.changeCurrentLocationStyle(
@@ -190,7 +190,6 @@ class HereRoutingController extends PandaRoutingController {
     mapController.changeMode(MapMode.normal);
     _status = PandaRoutingStatus.noRouting;
     _currentRoute = null;
-    _currentHereRoute = null;
     _locationChangedSub?.cancel();
   }
 
@@ -232,6 +231,8 @@ class HereRoutingController extends PandaRoutingController {
         }
         _routePolyline = _routePolyline?.copyWith(vertices: updatedVertices);
         _showUpdateRoutePolyline(_routePolyline!);
+        _remainingRouteLengthInMetter =
+            await _calculateRemainingRouteLength(current);
         _movingLocationStream.add(current);
       } else {
         // TODO: hanlde re-route
@@ -275,45 +276,6 @@ class HereRoutingController extends PandaRoutingController {
     _herePolylineRef = mapController.addPolyline(polyline) as MapPolyline;
   }
 
-  /// Update route with latest current location
-  /// If _updateCurrentRoute is excuting, other _updateCurrentRoute call will be ignored
-  Future<void> _updateCurrentRoute(MapCurrentLocation currentLocation) async {
-    if (_isRouteUpdating) {
-      return;
-    }
-    _isRouteUpdating = true;
-    Completer<List<Route>> completer = Completer();
-    _routingEngine.refreshRoute(
-      _currentHereRoute!.routeHandle!,
-      Waypoint(currentLocation.toHereMapCoordinate()),
-      RefreshRouteOptions.withCarOptions(_carRouteOptions),
-      (RoutingError? error, List<Route>? routes) {
-        _onRouteResult(
-          error: error,
-          routes: routes,
-          routesResultCompleter: completer,
-          start: currentLocation,
-          dest: _destLocation,
-        );
-      },
-    );
-    try {
-      List<Route> updatedRoutes = await completer.future;
-      _currentHereRoute = updatedRoutes.first;
-      _currentRoute = await _toMapRoute(
-        updatedRoutes.first,
-        currentLocation,
-        _destLocation,
-      );
-      _showUpdateRoutePolyline(_currentRoute!.polyline);
-    } on RoutingError catch (error) {
-      if (error == RoutingError.couldNotMatchOrigin) {
-        // TODO: re-route
-      }
-    }
-    _isRouteUpdating = false;
-  }
-
   /// Map Route (here route) to MapRoute (route defiend by PandaMap plugin)
   /// MapRoute includes polyline, locations (start, dest), move steps
   Future<MapRoute> _toMapRoute(
@@ -341,6 +303,7 @@ class HereRoutingController extends PandaRoutingController {
       boundingBox: hereRoute.boundingBox.toMapBoundingBox(),
       lengthInMeters: hereRoute.lengthInMeters,
       durationInMinutes: hereRoute.duration.inMinutes,
+      sdkRoute: hereRoute,
     );
     return route;
   }
@@ -358,6 +321,45 @@ class HereRoutingController extends PandaRoutingController {
     _showRoutePolyline(polyline);
     if (removedPolyline != null) {
       mapController.removePolyline(removedPolyline);
+    }
+  }
+
+  Future<int> _calculateRemainingRouteLength(
+      MapCurrentLocation location) async {
+    final updatedStart = Waypoint.withDefaults(location.toHereMapCoordinate());
+    Completer<List<Route>> completer = Completer();
+    _routingEngine.refreshRoute(
+      _currentRoute!.sdkRoute.routeHandle!,
+      updatedStart,
+      RefreshRouteOptions.withCarOptions(_carRouteOptions),
+      (RoutingError? error, List<Route>? routes) async {
+        _onRouteResult(
+          error: error,
+          routes: routes,
+          routesResultCompleter: completer,
+          start: location,
+          dest: _destLocation,
+        );
+      },
+    );
+
+    List<Route> routes = [];
+    try {
+      routes = await completer.future;
+    } on RoutingError catch (error) {
+      if (error == RoutingError.couldNotMatchOrigin) {
+        // TODO:re-route
+      }
+    }
+
+    if (routes.isNotEmpty) {
+      // TODO: keep updated route
+      Route updatedRoute = routes.first;
+      log('Refresh route successed, renmaming length = ${updatedRoute.lengthInMeters}');
+      return updatedRoute.lengthInMeters;
+    } else {
+      log('Refresh route return empty routes');
+      return -1;
     }
   }
 }
