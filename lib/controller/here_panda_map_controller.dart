@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:here_panda_map/extensions/map_extensions.dart';
 import 'package:here_panda_map/here_map_options.dart';
+import 'package:here_panda_map/widgets/custom_current_location_indicator.dart';
 import 'package:here_sdk/core.dart';
 import 'package:here_sdk/core.engine.dart';
 import 'package:here_sdk/core.errors.dart';
@@ -46,7 +47,7 @@ class HerePandaMapController extends PandaMapController {
   MapMarker? _currentLocationMarker;
 
   final int _currentMapTypeIndex = 1;
-  LocationIndicator? _currentLocationIndicator;
+  CustomLocationIndicator? _currentLocationIndicator;
 
   final List<MapPolyline> _polylines = [];
   final List<MapPolygon> _polygons = [];
@@ -77,9 +78,10 @@ class HerePandaMapController extends PandaMapController {
 
       // Setup current location indicator
       _currentLocationIndicator?.disable();
-      _currentLocationIndicator = LocationIndicator()
-        ..locationIndicatorStyle = LocationIndicatorIndicatorStyle.pedestrian;
-      _currentLocationIndicator?.enable(controller);
+      _currentLocationIndicator = CustomLocationIndicator(
+        style: CustomLocationIndicatorStyle.pedestrian,
+      );
+      await _currentLocationIndicator?.enable(controller);
       await focusCurrentLocation(animate: false);
 
       // Load map
@@ -315,8 +317,7 @@ class HerePandaMapController extends PandaMapController {
 
   @override
   void changeCurrentLocationStyle(MapCurrentLocationStyle style) {
-    _currentLocationIndicator?.locationIndicatorStyle =
-        style.toHereCurrentLocationStyle();
+    _currentLocationIndicator?.changeStyle(style.toHereCurrentLocationStyle());
   }
 
   @override

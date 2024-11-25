@@ -171,12 +171,10 @@ class HereRoutingController extends PandaRoutingController {
   @override
   Future<void> startNavigation(MapRoute route) async {
     _status = PandaRoutingStatus.navigating;
-    _currentRoute = route as MapRoute;
+    _currentRoute = route;
     _previewRoute = null;
     notifyListeners();
-    mapController.changeCurrentLocationStyle(
-      MapCurrentLocationStyle.navigation,
-    );
+    mapController.changeCurrentLocationStyle(navigatingLocationStyle);
     mapController.focusCurrentLocation();
     mapController.zoom(Constants.defaultZoomLevel);
     _locationChangedSub?.cancel();
@@ -207,7 +205,9 @@ class HereRoutingController extends PandaRoutingController {
     // No need to wait each other done
     mapController.focusCurrentLocation(currentLocation: current);
     if (_currentRoute != null) {
-      mapController.rotateMap(current, current.bearingDegrees);
+      if (navigatingLocationStyle == MapCurrentLocationStyle.navigation) {
+        mapController.rotateMap(current, current.bearingDegrees);
+      }
       const int toleranceInMetters = Constants.toleranceInMetters; // sai so
       int nearestPointIdx = PolygonUtil.locationIndexOnPath(
         current.toLatLngPolygonUtil(),

@@ -1,7 +1,7 @@
 import 'dart:ui';
 
+import 'package:here_panda_map/widgets/custom_current_location_indicator.dart';
 import 'package:here_sdk/core.dart';
-import 'package:here_sdk/mapview.dart';
 import 'package:here_sdk/routing.dart';
 import 'package:maps_toolkit/maps_toolkit.dart';
 import 'package:panda_map/core/models/map_bounding_box.dart';
@@ -36,12 +36,14 @@ extension MapPolylineExt on MapPolylinePanda {
 }
 
 extension MapCurrentLocationStyleExt on MapCurrentLocationStyle {
-  LocationIndicatorIndicatorStyle toHereCurrentLocationStyle() {
+  CustomLocationIndicatorStyle toHereCurrentLocationStyle() {
     switch (this) {
       case MapCurrentLocationStyle.normal:
-        return LocationIndicatorIndicatorStyle.pedestrian;
+        return CustomLocationIndicatorStyle.pedestrian;
       case MapCurrentLocationStyle.navigation:
-        return LocationIndicatorIndicatorStyle.navigation;
+        return CustomLocationIndicatorStyle.navigation;
+      case MapCurrentLocationStyle.tracking:
+        return CustomLocationIndicatorStyle.motorbikeTracking;
     }
   }
 }
