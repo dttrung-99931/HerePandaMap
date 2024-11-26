@@ -174,7 +174,7 @@ class HereRoutingController extends PandaRoutingController {
     _currentRoute = route;
     _previewRoute = null;
     notifyListeners();
-    mapController.changeCurrentLocationStyle(navigatingLocationStyle);
+    await mapController.changeCurrentLocationStyle(navigatingLocationStyle);
     mapController.focusCurrentLocation();
     mapController.zoom(Constants.defaultZoomLevel);
     _locationChangedSub?.cancel();
@@ -186,6 +186,7 @@ class HereRoutingController extends PandaRoutingController {
   @override
   Future<void> stopNavigation() async {
     mapController.changeMode(MapMode.normal);
+    mapController.changeCurrentLocationStyle(MapCurrentLocationStyle.normal);
     _status = PandaRoutingStatus.noRouting;
     _currentRoute = null;
     _locationChangedSub?.cancel();

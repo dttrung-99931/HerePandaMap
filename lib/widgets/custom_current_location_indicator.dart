@@ -7,105 +7,67 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:here_panda_map/extensions/map_extensions.dart';
 import 'package:here_sdk/core.dart';
 import 'package:here_sdk/mapview.dart';
-
-enum CustomLocationIndicatorStyle {
-  pedestrian,
-  navigation,
-  motorbikeTracking;
-
-  static List<CustomLocationIndicatorStyle> hereStylesGroup = [
-    pedestrian,
-    navigation,
-  ];
-  static List<CustomLocationIndicatorStyle> _customStypesGroup = [
-    motorbikeTracking
-  ];
-  static List<List<CustomLocationIndicatorStyle>> _styleGroups = [
-    hereStylesGroup,
-    _customStypesGroup,
-  ];
-  bool isDifferentStyleGroup(CustomLocationIndicatorStyle style) {
-    return _styleGroups.indexWhere((styles) => styles.contains(this)) !=
-        _styleGroups.indexWhere((styles) => styles.contains(style));
-  }
-
-  LocationIndicatorIndicatorStyle get toHereStyle {
-    switch (this) {
-      case CustomLocationIndicatorStyle.pedestrian:
-        return LocationIndicatorIndicatorStyle.pedestrian;
-      case CustomLocationIndicatorStyle.navigation:
-        return LocationIndicatorIndicatorStyle.navigation;
-      case CustomLocationIndicatorStyle.motorbikeTracking:
-        throw 'Cannot convert $this to CustomLocationIndicatorStyle';
-    }
-  }
-}
+import 'package:panda_map/core/models/map_current_location_style.dart';
 
 class CustomLocationIndicator {
   CustomLocationIndicator({
-    CustomLocationIndicatorStyle style =
-        CustomLocationIndicatorStyle.pedestrian,
+    MapCurrentLocationStyle style = MapCurrentLocationStyle.normal,
   }) : _style = style;
-  CustomLocationIndicatorStyle _style;
-  CustomLocationIndicatorStyle get style => _style;
+  MapCurrentLocationStyle _style;
+  MapCurrentLocationStyle get style => _style;
 
   late final LocationIndicator _defaultLocationIndicator = LocationIndicator();
   late HereMapController _mapController;
-  late ui.Image _driverImage;
-  final Completer<bool> _enaledCompleter = Completer();
+  ui.Image? _driverImage;
   MapMarker? _locationMarker;
 
-  Future<void> changeStyle(CustomLocationIndicatorStyle newStyle) async {
+  Future<void> changeStyle(MapCurrentLocationStyle newStyle) async {
     if (newStyle.isDifferentStyleGroup(style)) {
       disable();
       _style = newStyle;
       await enable(_mapController);
     } else {
       _style = newStyle;
-      if (CustomLocationIndicatorStyle.hereStylesGroup.contains(newStyle)) {
+      if (MapCurrentLocationStyle.hereStylesGroup.contains(newStyle)) {
         _defaultLocationIndicator.locationIndicatorStyle = newStyle.toHereStyle;
       }
     }
   }
 
   Future<void> enable(HereMapController controller) async {
+    _mapController = controller;
     try {
       switch (style) {
-        case CustomLocationIndicatorStyle.pedestrian:
-        case CustomLocationIndicatorStyle.navigation:
+        case MapCurrentLocationStyle.normal:
+        case MapCurrentLocationStyle.navigation:
           _defaultLocationIndicator.enable(controller);
-        case CustomLocationIndicatorStyle.motorbikeTracking:
-          _mapController = controller;
-          _driverImage = await _getDriverImage();
+        case MapCurrentLocationStyle.tracking:
       }
-      _enaledCompleter.complete(true);
     } catch (e) {
       log('enable CustomLocationIndicator error $e');
-      _enaledCompleter.complete(false);
     }
   }
 
   void disable() {
     switch (style) {
-      case CustomLocationIndicatorStyle.pedestrian:
-      case CustomLocationIndicatorStyle.navigation:
+      case MapCurrentLocationStyle.normal:
+      case MapCurrentLocationStyle.navigation:
         _defaultLocationIndicator.disable();
-      case CustomLocationIndicatorStyle.motorbikeTracking:
+      case MapCurrentLocationStyle.tracking:
     }
   }
 
   Future<void> updateLocation(Location location) async {
-    if (!(await _enaledCompleter.future)) {
-      return;
-    }
     switch (style) {
-      case CustomLocationIndicatorStyle.pedestrian:
-      case CustomLocationIndicatorStyle.navigation:
+      case MapCurrentLocationStyle.normal:
+      case MapCurrentLocationStyle.navigation:
         _defaultLocationIndicator.updateLocation(location);
-      case CustomLocationIndicatorStyle.motorbikeTracking:
+      case MapCurrentLocationStyle.tracking:
         log("Bearing ${location.bearingInDegrees!}");
+        _driverImage ??= await _getDriverImage();
         Uint8List rotatedDriverImg =
             await _getRotatedDriverImage(location.bearingInDegrees!);
         if (_locationMarker != null) {
@@ -142,11 +104,16 @@ class CustomLocationIndicator {
       bearingInDegree: bearingInDegrees - 180,
     );
     // log("camera bearing ${_mapController.camera.state.}");
-    painter.paint(canvas,
-        Size(_driverImage.width.toDouble(), _driverImage.height.toDouble()));
+    painter.paint(
+      canvas,
+      Size(
+        _driverImage!.width.toDouble(),
+        _driverImage!.height.toDouble(),
+      ),
+    );
     final picture = recorder.endRecording();
     final rotatedImage =
-        await picture.toImage(_driverImage.width, _driverImage.height);
+        await picture.toImage(_driverImage!.width, _driverImage!.height);
     final byteData =
         await rotatedImage.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();

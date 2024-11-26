@@ -79,7 +79,7 @@ class HerePandaMapController extends PandaMapController {
       // Setup current location indicator
       _currentLocationIndicator?.disable();
       _currentLocationIndicator = CustomLocationIndicator(
-        style: CustomLocationIndicatorStyle.pedestrian,
+        style: MapCurrentLocationStyle.normal,
       );
       await _currentLocationIndicator?.enable(controller);
       await focusCurrentLocation(animate: false);
@@ -316,8 +316,8 @@ class HerePandaMapController extends PandaMapController {
   }
 
   @override
-  void changeCurrentLocationStyle(MapCurrentLocationStyle style) {
-    _currentLocationIndicator?.changeStyle(style.toHereCurrentLocationStyle());
+  Future<void> changeCurrentLocationStyle(MapCurrentLocationStyle style) async {
+    await _currentLocationIndicator?.changeStyle(style);
   }
 
   @override
