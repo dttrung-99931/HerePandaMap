@@ -30,3 +30,6 @@ build/
 
 # Ignore Here sdk
 plugins/heresdk-explore-flutter/
+
+# FVM Version Cache
+.fvm/
